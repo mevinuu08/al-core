@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>A/L 2027 // OS CORE v11.0</title>
+    <title>A/L 2027 // OS CORE v12.0 (CLOUD SYNC)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -45,6 +45,9 @@
                 <div class="flex items-center gap-3">
                     <h1 class="text-xl md:text-2xl font-bold tracking-tighter text-white flex items-center gap-2">A/L 2027</h1>
                     <span id="headerCountdown" class="text-[10px] md:text-xs bg-[#ff003c]/10 text-[#ff3366] border border-[#ff3366]/30 px-2 py-1 rounded font-mono font-bold animate-pulse">T-MINUS ...</span>
+                    <button onclick="openCloudModal()" id="cloudStatusBtn" class="text-[10px] font-mono px-2 py-1 rounded bg-zinc-900 border border-zinc-700 text-zinc-400 flex items-center gap-1 hover:border-zinc-500 transition">
+                        <i data-lucide="cloud" class="w-3 h-3"></i> <span id="cloudStatusText">OFFLINE</span>
+                    </button>
                 </div>
                 
                 <div class="flex bg-zinc-900 border border-zinc-700 rounded-lg p-1">
@@ -92,6 +95,31 @@
         <div id="monthGrid" class="flex-grow grid grid-cols-7 divide-x divide-y divide-zinc-800 bg-zinc-950 border-t border-zinc-800 hidden"></div>
     </main>
 
+    <!-- CLOUD CONFIG MODAL -->
+    <div id="cloudModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center z-[120] p-4 modal-bg">
+        <div class="bg-zinc-900 border border-zinc-700 rounded-xl w-full max-w-md p-6 flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center mb-4 border-b border-zinc-800 pb-2">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2 font-mono"><i data-lucide="cloud" class="w-4 h-4 text-[#00ccff]"></i> CLOUD SYNC CONFIG (JSONBIN.IO)</h3>
+                <button onclick="closeCloudModal()" class="text-zinc-500 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <p class="text-xs text-zinc-400 font-mono mb-4 leading-relaxed">Enter your master key and bin ID below. Data will auto-sync across all devices where you load this.</p>
+            <div class="space-y-3">
+                <div>
+                    <label class="text-[10px] font-mono text-zinc-400">JSONBIN MASTER KEY</label>
+                    <input type="password" id="cloudKeyInput" class="w-full bg-black border border-zinc-700 rounded p-2 text-white font-mono text-xs focus:outline-none focus:border-[#00ccff]" placeholder="$2a$10$...">
+                </div>
+                <div>
+                    <label class="text-[10px] font-mono text-zinc-400">BIN ID</label>
+                    <input type="text" id="cloudBinInput" class="w-full bg-black border border-zinc-700 rounded p-2 text-white font-mono text-xs focus:outline-none focus:border-[#00ccff]" placeholder="e.g., 65d1a89c266cfc3fde891234">
+                </div>
+            </div>
+            <div class="flex gap-2 mt-6">
+                <button onclick="saveCloudConfig()" class="flex-1 py-2 bg-[#00ccff] text-black font-mono font-bold text-xs rounded hover:bg-[#00b0dc] transition">SAVE & PULL</button>
+                <button onclick="pushCloudData(true)" class="flex-1 py-2 bg-zinc-800 border border-zinc-700 text-white font-mono font-bold text-xs rounded hover:bg-zinc-700 transition">FORCE PUSH</button>
+            </div>
+        </div>
+    </div>
+
     <!-- TOUCH GRASS OVERRIDE -->
     <div id="touchGrassScreen" class="fixed inset-0 bg-[#00ff66] z-[9999] hidden flex-col items-center justify-center p-4">
         <h1 class="text-black font-black text-6xl md:text-9xl mb-4 tracking-tighter">TOUCH GRASS.</h1>
@@ -122,7 +150,7 @@
         <textarea id="scratchpadText" class="flex-grow bg-zinc-950 text-[#00ff66] font-mono text-xs p-4 focus:outline-none resize-none leading-relaxed placeholder-zinc-700" placeholder="> Dump formulas here..." oninput="saveScratchpad()"></textarea>
     </div>
 
-    <!-- FLASH-CORE MANAGER MODAL (W/ BULK IMPORT) -->
+    <!-- FLASH-CORE MANAGER MODAL -->
     <div id="flashManagerModal" class="fixed inset-0 bg-black/95 hidden items-center justify-center z-50 p-4 modal-bg">
         <div class="bg-zinc-950 border border-zinc-700 rounded-xl w-full max-w-3xl max-h-[95vh] flex flex-col shadow-2xl">
             <div class="flex justify-between items-center p-4 md:p-6 border-b border-zinc-800 shrink-0">
@@ -130,7 +158,6 @@
                 <button onclick="closeFlashManager()" class="text-zinc-500 hover:text-white transition"><i data-lucide="x" class="w-6 h-6"></i></button>
             </div>
             
-            <!-- Add Single or Bulk -->
             <div class="p-4 border-b border-zinc-800 bg-[#0a0f0a] shrink-0">
                 <div class="flex flex-col md:flex-row gap-2 mb-4">
                     <select id="newFlashSub" class="bg-black border border-zinc-800 rounded p-2 text-white font-mono text-xs focus:outline-none"><option value="phys">Physics</option><option value="chem">Chemistry</option><option value="math">Maths</option></select>
@@ -180,7 +207,6 @@
             
             <button id="standardAckBtn" onclick="unlockSysBoot()" class="w-full py-3 bg-white text-black font-bold rounded hover:bg-zinc-300 uppercase hidden tracking-widest transition">ACKNOWLEDGE</button>
 
-            <!-- Flash-Core Interceptor -->
             <div id="flashInterceptor" class="w-full bg-[#050505] border border-[#ff3366] rounded p-4 hidden flex-col items-center relative">
                 <h3 class="text-[#ff3366] font-mono text-[10px] font-bold mb-3 tracking-widest">FLASH-CORE OVERRIDE</h3>
                 <p id="bootFlashQ" class="text-white font-bold text-sm mb-4 w-full break-words"></p>
@@ -218,16 +244,13 @@
             <button onclick="resetTimer()" class="px-6 py-3 bg-transparent border border-zinc-700 text-zinc-400 font-bold rounded-full hover:bg-zinc-800 transition hover:text-white">RESET</button>
         </div>
 
-        <!-- Hybrid Focus Tools Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-4xl pb-10">
-            <!-- Spotify Embed -->
             <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-4">
                 <p class="text-xs text-zinc-500 font-mono mb-3 flex items-center gap-2"><i data-lucide="music" class="w-4 h-4"></i> SPOTIFY INTEGRATION</p>
                 <input type="text" id="spotifyLink" class="w-full bg-black text-xs p-2 rounded border border-zinc-800 mb-3 focus:outline-none focus:border-[#00ff66] text-zinc-300" placeholder="Paste Spotify URL..." onchange="updateSpotify()">
                 <iframe id="spotifyFrame" src="https://open.spotify.com/embed/playlist/37i9dQZF1DWZeKCadgRdKQ" width="100%" height="152" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>
             </div>
 
-            <!-- Offline Audio Synth -->
             <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-4 flex flex-col justify-between">
                 <p class="text-xs text-zinc-500 font-mono mb-3 flex items-center gap-2"><i data-lucide="radio" class="w-4 h-4"></i> OFFLINE SYNTHESIZER</p>
                 <div class="space-y-4">
@@ -251,7 +274,6 @@
                 </div>
             </div>
             
-            <!-- Uber Eats Bounty Board -->
             <div class="md:col-span-2 bg-zinc-900 rounded-xl border border-zinc-800 p-4">
                 <div class="flex justify-between items-center mb-2">
                     <span class="text-yellow-500 font-mono text-xs font-bold flex items-center gap-2"><i data-lucide="pizza" class="w-4 h-4"></i> UBER EATS BOUNTY</span>
@@ -336,7 +358,7 @@
     </div>
 
     <script>
-        // --- SYSTEM REPAIR PROTOCOL (V11 MIGRATION PATCH) ---
+        // --- SYSTEM REPAIR PROTOCOL (V12 MIGRATION) ---
         let defaultData = {
             customEvents: {}, recurringEvents: [], deletedBaseEvents: {}, deletedGlobalBaseEvents: {},
             pastPapers: { phys: {}, chem: {}, math: {} }, scratchpad: "", lastBoot: "",
@@ -355,7 +377,7 @@
             stats: { soloMinutes: 0, pomodorosToday: 0, lastBackup: "" }, audit: { skippedClasses: 0 }
         };
 
-        let rawData = localStorage.getItem('al_data_v11') || localStorage.getItem('al_data_v10_1') || localStorage.getItem('al_data_v10') || localStorage.getItem('al_data_v9');
+        let rawData = localStorage.getItem('al_data_v12') || localStorage.getItem('al_data_v11') || localStorage.getItem('al_data_v10_1') || localStorage.getItem('al_data_v10');
         let appData = rawData ? JSON.parse(rawData) : defaultData;
 
         if (!appData.stats) appData.stats = { soloMinutes: 0, pomodorosToday: 0, lastBackup: "" };
@@ -367,16 +389,14 @@
         if (!appData.sleepLogs) appData.sleepLogs = {};
         if (!appData.flashcards || Array.isArray(appData.flashcards)) appData.flashcards = defaultData.flashcards;
 
-        // Ensure base 15 exist if missing
         ['phys','chem','math'].forEach(s => { if(!appData.flashcards[s] || appData.flashcards[s].length === 0) appData.flashcards[s] = defaultData.flashcards[s]; });
 
-        localStorage.setItem('al_data_v11', JSON.stringify(appData));
+        localStorage.setItem('al_data_v12', JSON.stringify(appData));
 
         lucide.createIcons();
         const HOUR_HEIGHT = 60; let currentView = 'week'; let baseDate = new Date(); 
         const EXAM_DATE = new Date('2027-08-03T00:00:00');
 
-        // V11 CORRECTED SCHEDULE
         const BASE_SCHEDULE = [
             { day: 0, start: '01:00', end: '05:45', title: 'Sleep Protocol', type: 'bg-club', id: 'base-sleep-0' },
             { day: 1, start: '01:00', end: '05:45', title: 'Sleep Protocol', type: 'bg-club', id: 'base-sleep-1' },
@@ -407,19 +427,114 @@
         function timeToPx(timeStr) { const [h, m] = timeStr.split(':').map(Number); return (h + (m / 60)) * HOUR_HEIGHT; }
         function getDurationHours(start, end) { const [sh, sm] = start.split(':').map(Number); const [eh, em] = end.split(':').map(Number); return (eh + em/60) - (sh + sm/60); }
 
+        // --- JSONBIN.IO CLOUD ENGINE ---
+        let cloudConfig = JSON.parse(localStorage.getItem('al_cloud_config')) || { key: '', bin: '' };
+        let syncTimeout = null;
+
+        function updateCloudUI(state) {
+            const btn = document.getElementById('cloudStatusBtn');
+            const txt = document.getElementById('cloudStatusText');
+            if (!cloudConfig.key || !cloudConfig.bin) {
+                btn.className = "text-[10px] font-mono px-2 py-1 rounded bg-zinc-900 border border-zinc-700 text-zinc-500 flex items-center gap-1 hover:border-zinc-400";
+                txt.innerText = "OFFLINE";
+                return;
+            }
+            if (state === 'syncing') {
+                btn.className = "text-[10px] font-mono px-2 py-1 rounded bg-yellow-950 border border-yellow-500 text-yellow-400 flex items-center gap-1 animate-pulse";
+                txt.innerText = "SYNCING...";
+            } else if (state === 'synced') {
+                btn.className = "text-[10px] font-mono px-2 py-1 rounded bg-zinc-900 border border-[#00ccff]/50 text-[#00ccff] flex items-center gap-1";
+                txt.innerText = "SYNCED";
+            } else if (state === 'error') {
+                btn.className = "text-[10px] font-mono px-2 py-1 rounded bg-red-950 border border-red-500 text-red-400 flex items-center gap-1";
+                txt.innerText = "SYNC ERR";
+            }
+            lucide.createIcons();
+        }
+
+        async function pullCloudData() {
+            if (!cloudConfig.key || !cloudConfig.bin) return;
+            updateCloudUI('syncing');
+            try {
+                const res = await fetch(`https://api.jsonbin.io/v3/b/${cloudConfig.bin}/latest`, {
+                    headers: { 'X-Master-Key': cloudConfig.key }
+                });
+                if (!res.ok) throw new Error("Fetch failed");
+                const json = await res.json();
+                if (json.record && json.record.stats) {
+                    appData = json.record;
+                    localStorage.setItem('al_data_v12', JSON.stringify(appData));
+                    render();
+                    updateCloudUI('synced');
+                }
+            } catch (err) {
+                console.error(err);
+                updateCloudUI('error');
+            }
+        }
+
+        async function pushCloudData(isManual = false) {
+            if (!cloudConfig.key || !cloudConfig.bin) return;
+            updateCloudUI('syncing');
+            try {
+                const res = await fetch(`https://api.jsonbin.io/v3/b/${cloudConfig.bin}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': cloudConfig.key
+                    },
+                    body: JSON.stringify(appData)
+                });
+                if (!res.ok) throw new Error("Push failed");
+                updateCloudUI('synced');
+                if (isManual) alert("Cloud Sync Complete.");
+            } catch (err) {
+                console.error(err);
+                updateCloudUI('error');
+                if (isManual) alert("Cloud Sync Failed. Check Key and Bin ID.");
+            }
+        }
+
+        function triggerCloudSync() {
+            localStorage.setItem('al_data_v12', JSON.stringify(appData));
+            if (!cloudConfig.key || !cloudConfig.bin) return;
+            clearTimeout(syncTimeout);
+            updateCloudUI('syncing');
+            syncTimeout = setTimeout(() => { pushCloudData(false); }, 1500); // 1.5s debounce
+        }
+
+        function openCloudModal() {
+            document.getElementById('cloudKeyInput').value = cloudConfig.key || '';
+            document.getElementById('cloudBinInput').value = cloudConfig.bin || '';
+            document.getElementById('cloudModal').classList.remove('hidden');
+            document.getElementById('cloudModal').classList.add('flex');
+        }
+        function closeCloudModal() {
+            document.getElementById('cloudModal').classList.add('hidden');
+            document.getElementById('cloudModal').classList.remove('flex');
+        }
+        function saveCloudConfig() {
+            cloudConfig.key = document.getElementById('cloudKeyInput').value.trim();
+            cloudConfig.bin = document.getElementById('cloudBinInput').value.trim();
+            localStorage.setItem('al_cloud_config', JSON.stringify(cloudConfig));
+            closeCloudModal();
+            pullCloudData();
+        }
+
+        // --- BACKUP SWITCH ---
         function checkDeadManSwitch() {
             const el = document.getElementById('deadManSwitch');
             if (el && new Date().getDay() === 5 && appData.stats.lastBackup !== formatDate(new Date())) { el.classList.remove('hidden'); } else if (el) { el.classList.add('hidden'); }
         }
         function exportData() {
-            appData.stats.lastBackup = formatDate(new Date()); localStorage.setItem('al_data_v11', JSON.stringify(appData)); checkDeadManSwitch();
+            appData.stats.lastBackup = formatDate(new Date()); triggerCloudSync(); checkDeadManSwitch();
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData, null, 2));
-            const a = document.createElement('a'); a.href = dataStr; a.download = `AL_OS_V11_${formatDate(new Date())}.json`;
+            const a = document.createElement('a'); a.href = dataStr; a.download = `AL_OS_V12_${formatDate(new Date())}.json`;
             document.body.appendChild(a); a.click(); a.remove();
         }
         function importData(e) {
             const f = e.target.files[0]; if(!f) return; const r = new FileReader();
-            r.onload = ev => { appData = JSON.parse(ev.target.result); localStorage.setItem('al_data_v11', JSON.stringify(appData)); alert("Backup Loaded. Reloading UI."); location.reload(); };
+            r.onload = ev => { appData = JSON.parse(ev.target.result); triggerCloudSync(); alert("Backup Loaded. Reloading UI."); location.reload(); };
             r.readAsText(f);
         }
 
@@ -494,7 +609,7 @@
                     btn.innerText = "CLAIM BOUNTY (JUNK FOOD UNLOCKED)";
                     btn.className = "w-full py-1.5 bg-yellow-500 text-black font-mono text-[10px] font-bold rounded shadow-[0_0_10px_rgba(234,179,8,0.5)] animate-pulse cursor-pointer";
                     btn.disabled = false;
-                    btn.onclick = () => { alert("Reward Claimed. Progress Reset."); appData.stats.soloMinutes = 0; updateBounty(); localStorage.setItem('al_data_v11', JSON.stringify(appData)); };
+                    btn.onclick = () => { alert("Reward Claimed. Progress Reset."); appData.stats.soloMinutes = 0; updateBounty(); triggerCloudSync(); };
                 }
             }
         }
@@ -546,7 +661,7 @@
                 document.getElementById('bootFlashQ').innerText = `[${s.toUpperCase()}] ${currentBootFlash.q}`; document.getElementById('bootFlashA').innerText = currentBootFlash.a;
                 document.getElementById('flashInterceptor').classList.remove('hidden'); document.getElementById('flashInterceptor').classList.add('flex');
             } else { document.getElementById('standardAckBtn').classList.remove('hidden'); }
-            localStorage.setItem('al_data_v11', JSON.stringify(appData)); lucide.createIcons();
+            triggerCloudSync(); lucide.createIcons();
         }
         function revealBootFlashcard() { document.getElementById('bootFlashRevealBtn').classList.add('hidden'); document.getElementById('bootFlashInputArea').classList.remove('hidden'); document.getElementById('bootFlashInputArea').classList.add('flex'); document.getElementById('bootFlashInput').focus(); }
         function verifyBootFlashcard() {
@@ -554,7 +669,7 @@
             if (input === target) { document.getElementById('flashInterceptor').classList.replace('border-[#ff3366]', 'border-[#00ff66]'); setTimeout(() => { unlockSysBoot(); }, 500); } 
             else { document.getElementById('bootFlashError').classList.toggle('hidden', input.length < target.length); }
         }
-        function unlockSysBoot() { appData.lastBoot = formatDate(new Date()); localStorage.setItem('al_data_v11', JSON.stringify(appData)); document.getElementById('bootModal').classList.add('hidden'); document.getElementById('bootModal').classList.remove('flex'); }
+        function unlockSysBoot() { appData.lastBoot = formatDate(new Date()); triggerCloudSync(); document.getElementById('bootModal').classList.add('hidden'); document.getElementById('bootModal').classList.remove('flex'); }
 
         // --- FLASH-CORE MANAGER ---
         function openFlashManager() {
@@ -570,7 +685,7 @@
         function closeFlashManager() { document.getElementById('flashManagerModal').classList.add('hidden'); document.getElementById('flashManagerModal').classList.remove('flex'); }
         function addFlashcard() {
             const s = document.getElementById('newFlashSub').value; const q = document.getElementById('newFlashQ').value.trim(); const a = document.getElementById('newFlashA').value.trim();
-            if(!q || !a) return; appData.flashcards[s].push({ id: Date.now().toString(), q, a }); localStorage.setItem('al_data_v11', JSON.stringify(appData));
+            if(!q || !a) return; appData.flashcards[s].push({ id: Date.now().toString(), q, a }); triggerCloudSync();
             document.getElementById('newFlashQ').value = ''; document.getElementById('newFlashA').value = ''; openFlashManager();
         }
         function bulkAddFlashcards() {
@@ -583,9 +698,9 @@
                     if(q.trim() && a.trim()) { appData.flashcards[s].push({ id: Date.now().toString() + added, q: q.trim(), a: a.trim() }); added++; }
                 }
             });
-            localStorage.setItem('al_data_v11', JSON.stringify(appData)); document.getElementById('bulkFlashInput').value = ''; alert(`Injected ${added} cards to ${s.toUpperCase()}.`); openFlashManager();
+            triggerCloudSync(); document.getElementById('bulkFlashInput').value = ''; alert(`Injected ${added} cards to ${s.toUpperCase()}.`); openFlashManager();
         }
-        function deleteFlashcard(s, id) { appData.flashcards[s] = appData.flashcards[s].filter(f => f.id !== id); localStorage.setItem('al_data_v11', JSON.stringify(appData)); openFlashManager(); }
+        function deleteFlashcard(s, id) { appData.flashcards[s] = appData.flashcards[s].filter(f => f.id !== id); triggerCloudSync(); openFlashManager(); }
 
         // --- POMODORO ---
         let timerInterval; let timeLeft = 0; let isTimerRunning = false; let isBreakMode = false;
@@ -602,7 +717,7 @@
                 document.getElementById('touchGrassScreen').classList.remove('hidden'); document.getElementById('touchGrassScreen').classList.add('flex');
                 let tgTime = 900; let tgInt = setInterval(()=>{
                     tgTime--; document.getElementById('tgCountdown').innerText = `${String(Math.floor(tgTime/60)).padStart(2,'0')}:${String(tgTime%60).padStart(2,'0')}`;
-                    if(tgTime<=0){ clearInterval(tgInt); document.getElementById('touchGrassScreen').classList.add('hidden'); document.getElementById('touchGrassScreen').classList.remove('flex'); appData.stats.pomodorosToday=0; localStorage.setItem('al_data_v11', JSON.stringify(appData)); }
+                    if(tgTime<=0){ clearInterval(tgInt); document.getElementById('touchGrassScreen').classList.add('hidden'); document.getElementById('touchGrassScreen').classList.remove('flex'); appData.stats.pomodorosToday=0; triggerCloudSync(); }
                 }, 1000);
             }
         }
@@ -618,7 +733,7 @@
             isTimerRunning = true;
             timerInterval = setInterval(() => {
                 timeLeft--; updateDisplay();
-                if(timeLeft % 60 === 0 && !isBreakMode) { appData.stats.soloMinutes++; localStorage.setItem('al_data_v11', JSON.stringify(appData)); updateBounty(); }
+                if(timeLeft % 60 === 0 && !isBreakMode) { appData.stats.soloMinutes++; triggerCloudSync(); updateBounty(); }
                 
                 if (timeLeft <= 0) {
                     clearInterval(timerInterval); isTimerRunning = false; isBreakMode = !isBreakMode;
@@ -679,7 +794,7 @@
             document.getElementById('skillTreeModal').classList.remove('hidden'); document.getElementById('skillTreeModal').classList.add('flex'); lucide.createIcons();
         }
         function closeSkillTree() { document.getElementById('skillTreeModal').classList.add('hidden'); document.getElementById('skillTreeModal').classList.remove('flex'); }
-        function toggleSkill(s, mod) { appData.skillTree[s][mod] = !appData.skillTree[s][mod]; localStorage.setItem('al_data_v11', JSON.stringify(appData)); openSkillTree(); }
+        function toggleSkill(s, mod) { appData.skillTree[s][mod] = !appData.skillTree[s][mod]; triggerCloudSync(); openSkillTree(); }
 
         const matrixModal = document.getElementById('matrixModal'); const pastYears = [2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
         function openMatrixModal() {
@@ -694,10 +809,10 @@
             matrixModal.classList.remove('hidden'); matrixModal.classList.add('flex');
         }
         function closeMatrixModal() { matrixModal.classList.add('hidden'); matrixModal.classList.remove('flex'); }
-        function cyclePaper(s, y) { let c = appData.pastPapers[s][y] || 0; appData.pastPapers[s][y] = c+1>3?0:c+1; localStorage.setItem('al_data_v11', JSON.stringify(appData)); openMatrixModal(); }
+        function cyclePaper(s, y) { let c = appData.pastPapers[s][y] || 0; appData.pastPapers[s][y] = c+1>3?0:c+1; triggerCloudSync(); openMatrixModal(); }
 
         function toggleScratchpad() { document.getElementById('scratchpadPanel').classList.toggle('translate-x-full'); document.getElementById('scratchpadText').value = appData.scratchpad || ''; }
-        function saveScratchpad() { appData.scratchpad = document.getElementById('scratchpadText').value; localStorage.setItem('al_data_v11', JSON.stringify(appData)); }
+        function saveScratchpad() { appData.scratchpad = document.getElementById('scratchpadText').value; triggerCloudSync(); }
 
         // --- CALENDAR LOGIC ---
         function getEventsForDate(date) {
@@ -767,7 +882,6 @@
 
             daysArray.forEach((d, index) => {
                 const dateStr = formatDate(d); const events = getEventsForDate(d);
-                // V11: Perfect CSS calc() for grid alignment
                 let colWidth = `calc((100% - 50px) / ${colCount})`;
                 let leftPos = `calc(50px + (${index} * (100% - 50px) / ${colCount}))`;
                 let colHTML = `<div class="absolute h-full border-r border-zinc-800/50" style="left: ${leftPos}; width: ${colWidth};">`;
@@ -854,7 +968,7 @@
                 if (isRepeat) { newEv.dayOfWeek = new Date(date).getDay(); newEv.startDate = date; appData.recurringEvents.push(newEv); } 
                 else { if(!appData.customEvents[date]) appData.customEvents[date] = []; appData.customEvents[date].push(newEv); }
             }
-            localStorage.setItem('al_data_v11', JSON.stringify(appData)); closeModal(); render();
+            triggerCloudSync(); closeModal(); render();
         }
         document.getElementById('deleteBtn').addEventListener('click', () => {
             const uniqueId = document.getElementById('eventId').value; const originalId = document.getElementById('eventOriginalId').value;
@@ -869,7 +983,7 @@
                 for (let d in appData.customEvents) { appData.customEvents[d] = appData.customEvents[d].filter(e => e.id !== uniqueId); if(appData.customEvents[d].length === 0) delete appData.customEvents[d]; }
                 appData.audit.skippedClasses++; 
             }
-            localStorage.setItem('al_data_v11', JSON.stringify(appData)); closeModal(); render();
+            triggerCloudSync(); closeModal(); render();
         });
 
         // Swipe & Init
@@ -878,7 +992,12 @@
         swipeArea.addEventListener('touchend', e => { touchEndX = e.changedTouches[0].screenX; if (touchEndX < touchStartX - 50) nav(1); if (touchEndX > touchStartX + 50) nav(-1); }, {passive: true});
         setInterval(() => { if (currentView === 'day' || currentView === 'week') render(); updateCountdowns(); }, 60000);
         
-        setView('week'); setTimeout(runSysBoot, 500); 
+        setView('week'); 
+        setTimeout(() => {
+            updateCloudUI('synced');
+            pullCloudData();
+            runSysBoot();
+        }, 500); 
     </script>
 </body>
 </html>
