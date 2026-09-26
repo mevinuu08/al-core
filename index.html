@@ -1,640 +1,1071 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>A/L CORE // OS</title>
+    <title>A/L 2027 // OS CORE v12.0 (CLOUD SYNC)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        darkBg: '#090d16',
-                        cardBg: '#111726',
-                        borderCol: '#1e293b',
-                        accentCyan: '#06b6d4',
-                        accentRed: '#f43f5e',
-                        accentGreen: '#10b981'
-                    }
-                }
-            }
-        }
-    </script>
     <style>
-        body { background-color: #090d16; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #090d16; }
-        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+        body { font-family: 'Space Grotesk', sans-serif; background-color: #050505; color: #ededed; overflow: hidden; overscroll-behavior-x: none; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #050505; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00ff66; }
+        
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .time-grid-container { height: calc(100vh - 200px); overflow-y: auto; overflow-x: hidden; position: relative; scroll-behavior: smooth; }
+        .grid-bg-line { position: absolute; width: 100%; border-top: 1px solid #1a1a1a; pointer-events: none; }
+        .time-label { position: absolute; left: 0; width: 50px; text-align: right; padding-right: 8px; font-size: 10px; color: #555; transform: translateY(-50%); font-family: 'JetBrains Mono', monospace;}
+        
+        .event-block { position: absolute; width: 96%; left: 2%; border-radius: 4px; padding: 4px 6px; font-size: 11px; line-height: 1.2; overflow: hidden; cursor: pointer; transition: all 0.1s; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border-left-width: 3px; backdrop-filter: blur(4px); }
+        .event-block:hover { z-index: 50; filter: brightness(1.2); transform: scale(1.02); }
+        
+        .bg-phys { background: rgba(255, 51, 102, 0.15); border-color: #ff3366; color: #ffb3c6; }
+        .bg-chem { background: rgba(0, 204, 255, 0.15); border-color: #00ccff; color: #b3f0ff; }
+        .bg-math { background: rgba(204, 102, 255, 0.15); border-color: #cc66ff; color: #e6b3ff; }
+        .bg-solo { background: rgba(0, 255, 102, 0.15); border-color: #00ff66; color: #b3ffcc; }
+        .bg-club { background: rgba(255, 170, 0, 0.15); border-color: #ffaa00; color: #ffcc66; }
+
+        .current-time-line { position: absolute; height: 2px; background: #ff003c; width: 100%; z-index: 40; pointer-events: none; box-shadow: 0 0 8px #ff003c; }
+        .current-time-dot { position: absolute; width: 8px; height: 8px; background: #ff003c; border-radius: 50%; left: -4px; top: -3px; }
+        
+        .modal-bg { backdrop-filter: blur(8px); }
+        #scratchpadPanel { transition: transform 0.3s ease-in-out; }
     </style>
 </head>
-<body class="text-slate-200 min-h-screen p-4 md:p-8">
+<body class="flex flex-col h-screen relative">
 
-    <!-- TOP NAV / SYNC HEADER -->
-    <header class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-borderCol">
-        <div class="flex items-center gap-3">
-            <span class="text-xl font-black tracking-wider text-cyan-400">A/L // CORE OS</span>
-            <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono">v2.6.PROD</span>
+    <div id="deadManSwitch" class="hidden w-full bg-red-600 text-black text-center font-bold font-mono py-1 text-[10px] animate-pulse cursor-pointer" onclick="exportData()">CRITICAL: DEAD MAN'S SWITCH TRIGGERED. EXPORT SAVE STATE IMMEDIATELY TO SECURE DATA.</div>
+
+    <header class="w-full px-4 md:px-6 pt-4 pb-2 border-b border-zinc-800 bg-[#050505] z-20 flex-shrink-0">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-2">
+            <div class="flex items-center gap-3 w-full md:w-auto justify-between">
+                <div class="flex items-center gap-3">
+                    <h1 class="text-xl md:text-2xl font-bold tracking-tighter text-white flex items-center gap-2">A/L 2027</h1>
+                    <span id="headerCountdown" class="text-[10px] md:text-xs bg-[#ff003c]/10 text-[#ff3366] border border-[#ff3366]/30 px-2 py-1 rounded font-mono font-bold animate-pulse">T-MINUS ...</span>
+                    <button onclick="openCloudModal()" id="cloudStatusBtn" class="text-[10px] font-mono px-2 py-1 rounded bg-zinc-900 border border-zinc-700 text-zinc-400 flex items-center gap-1 hover:border-zinc-500 transition">
+                        <i data-lucide="cloud" class="w-3 h-3"></i> <span id="cloudStatusText">OFFLINE</span>
+                    </button>
+                </div>
+                
+                <div class="flex bg-zinc-900 border border-zinc-700 rounded-lg p-1">
+                    <button onclick="setView('day')" id="btn-day" class="px-3 py-1 text-[10px] font-bold rounded text-zinc-400 hover:text-white transition">DAY</button>
+                    <button onclick="setView('week')" id="btn-week" class="px-3 py-1 text-[10px] font-bold rounded text-zinc-400 hover:text-white transition">WEEK</button>
+                    <button onclick="setView('month')" id="btn-month" class="px-3 py-1 text-[10px] font-bold rounded text-zinc-400 hover:text-white transition">MTH</button>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+                <button onclick="openFlashManager()" class="px-2 py-1.5 text-[10px] font-bold bg-zinc-800 border border-zinc-600 rounded text-[#00ff66] flex gap-1 shrink-0"><i data-lucide="brain" class="w-3 h-3"></i> CARDS</button>
+                <button onclick="openSkillTree()" class="px-2 py-1.5 text-[10px] font-bold bg-zinc-800 border border-zinc-600 rounded text-[#cc66ff] flex gap-1 shrink-0"><i data-lucide="network" class="w-3 h-3"></i> SKILLS</button>
+                <button onclick="openMatrixModal()" class="px-2 py-1.5 text-[10px] font-bold bg-zinc-800 border border-zinc-600 rounded text-[#00ccff] flex gap-1 shrink-0"><i data-lucide="check-square" class="w-3 h-3"></i> MATRIX</button>
+                <button onclick="openAudit()" class="px-2 py-1.5 text-[10px] font-bold bg-zinc-800 border border-zinc-600 rounded text-yellow-400 flex gap-1 shrink-0"><i data-lucide="file-text" class="w-3 h-3"></i> AUDIT</button>
+                <button onclick="toggleDeepWork()" class="px-2 py-1.5 text-[10px] font-bold bg-[#00ff66]/10 border border-[#00ff66]/30 rounded text-[#00ff66] flex gap-1 shrink-0"><i data-lucide="zap" class="w-3 h-3"></i> FOCUS</button>
+                <button onclick="toggleExamMode()" class="px-2 py-1.5 text-[10px] font-bold bg-[#ff003c]/20 border border-[#ff003c]/50 rounded text-[#ff003c] flex gap-1 shrink-0"><i data-lucide="skull" class="w-3 h-3"></i> EXAM</button>
+                <button onclick="toggleScratchpad()" class="px-2 py-1.5 text-[10px] font-bold bg-zinc-800 border border-zinc-600 rounded text-zinc-300 flex shrink-0"><i data-lucide="terminal" class="w-4 h-4"></i></button>
+                <div class="flex items-center gap-1 border-l border-zinc-700 pl-2 ml-1">
+                    <button onclick="exportData()" class="p-1.5 bg-zinc-800 rounded text-zinc-400 hover:text-white transition"><i data-lucide="download" class="w-3 h-3"></i></button>
+                    <label class="cursor-pointer p-1.5 bg-zinc-800 rounded text-zinc-400 hover:text-white transition"><i data-lucide="upload" class="w-3 h-3"></i><input type="file" class="hidden" accept=".json" onchange="importData(event)"></label>
+                </div>
+            </div>
         </div>
 
-        <div class="flex items-center gap-4">
-            <div id="target-countdown" class="text-xs font-mono text-slate-400 bg-cardBg border border-borderCol px-3 py-1.5 rounded-lg">
-                TARGET: <span class="text-cyan-400 font-bold" id="countdown-val">--</span>
+        <div class="flex justify-between items-center mt-1">
+            <div id="analyticsBanner" class="text-[10px] font-mono px-3 py-1 rounded bg-zinc-900 border border-zinc-700 text-zinc-400 flex items-center gap-2">
+                <i data-lucide="activity" class="w-3 h-3"></i> <span>Analytics: Loading...</span>
             </div>
-            <button onclick="openSyncModal()" id="sync-status-pill" class="text-xs font-mono px-3 py-1.5 rounded-lg border border-borderCol bg-cardBg hover:bg-slate-800 transition flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-slate-500" id="sync-indicator"></span>
-                <span id="sync-text">[ OFFLINE ]</span>
-            </button>
+
+            <div class="flex items-center gap-2">
+                <button onclick="goToday()" class="hidden md:block px-3 py-1 text-[10px] font-bold bg-zinc-800 rounded border border-zinc-600 hover:bg-zinc-700 transition">TODAY</button>
+                <div class="flex items-center gap-1">
+                    <button onclick="nav(-1)" class="p-1 bg-zinc-900 rounded hover:bg-zinc-800 transition"><i data-lucide="chevron-left" class="w-3 h-3"></i></button>
+                    <h2 id="currentDateDisplay" class="text-xs font-bold w-32 text-center uppercase tracking-wide"></h2>
+                    <button onclick="nav(1)" class="p-1 bg-zinc-900 rounded hover:bg-zinc-800 transition"><i data-lucide="chevron-right" class="w-3 h-3"></i></button>
+                </div>
+                <button onclick="openNewEventModal()" class="px-3 py-1 text-[10px] font-bold bg-[#00ff66] text-black rounded flex items-center gap-1 hover:bg-[#00cc52] transition"><i data-lucide="plus" class="w-3 h-3"></i> ADD</button>
+            </div>
         </div>
     </header>
 
-    <!-- MAIN DASHBOARD -->
-    <main class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-        
-        <!-- COLUMN 1: STATS & TOXIC RATIO -->
-        <div class="space-y-6">
-            
-            <!-- TOXIC RATIO METRIC -->
-            <div class="bg-cardBg border border-borderCol rounded-xl p-5 shadow-lg">
-                <div class="flex items-center justify-between pb-3 border-b border-borderCol/60">
-                    <span class="text-xs font-mono tracking-widest text-slate-400 uppercase">Reality Check</span>
-                    <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i>
-                </div>
-
-                <div class="mt-4 flex items-baseline justify-between">
-                    <div>
-                        <div class="text-4xl font-black tracking-tight" id="toxic-ratio-ui">0.0x</div>
-                        <p class="text-xs font-mono text-slate-400 mt-1" id="toxic-label">Ratio: Slacking / Grind</p>
-                    </div>
-                    <span id="toxic-badge" class="text-xs font-bold px-2.5 py-1 rounded bg-slate-800 text-slate-300 uppercase font-mono">
-                        NO DATA
-                    </span>
-                </div>
-
-                <div class="grid grid-cols-2 gap-3 mt-5 pt-4 border-t border-borderCol/60 font-mono text-xs">
-                    <div class="bg-darkBg/60 p-2.5 rounded-lg border border-borderCol/40">
-                        <div class="text-slate-500">STUDY LOGGED</div>
-                        <div class="text-lg font-bold text-emerald-400 mt-0.5" id="stat-study-hours">0.0 hrs</div>
-                    </div>
-                    <div class="bg-darkBg/60 p-2.5 rounded-lg border border-borderCol/40">
-                        <div class="text-slate-500">SCREEN / SLACK</div>
-                        <div class="text-lg font-bold text-rose-400 mt-0.5" id="stat-slack-hours">0.0 hrs</div>
-                    </div>
-                </div>
-
-                <div class="mt-4 flex items-center gap-2">
-                    <input type="number" id="slack-input" step="0.5" min="0" placeholder="Add slacking hrs..." class="w-full bg-darkBg border border-borderCol rounded px-3 py-1.5 text-xs text-slate-200 outline-none focus:border-cyan-500">
-                    <button onclick="addSlackHours()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3 py-1.5 rounded font-mono transition">LOG</button>
-                </div>
-            </div>
-
-            <!-- CLASS & PROGRAM INTERROGATOR -->
-            <div class="bg-cardBg border border-borderCol rounded-xl p-5 shadow-lg">
-                <div class="flex items-center justify-between pb-3 border-b border-borderCol/60">
-                    <span class="text-xs font-mono tracking-widest text-slate-400 uppercase">Class Schedule Verifier</span>
-                    <i data-lucide="shield-alert" class="w-4 h-4 text-cyan-400"></i>
-                </div>
-
-                <p class="text-xs text-slate-400 mt-3">Verify your registered lectures/programs. No faking logs.</p>
-
-                <!-- Program List -->
-                <div class="space-y-3 mt-4" id="programs-list">
-                    <!-- Populated via JavaScript -->
-                </div>
-
-                <!-- Add Program Input -->
-                <div class="mt-4 pt-4 border-t border-borderCol/60 space-y-2">
-                    <input type="text" id="new-program-name" placeholder="Class name (e.g. Physics Theory)" class="w-full bg-darkBg border border-borderCol rounded px-3 py-1.5 text-xs text-slate-200 outline-none focus:border-cyan-500">
-                    <div class="flex gap-2">
-                        <input type="number" id="new-program-dur" placeholder="Duration (min)" value="120" class="w-1/2 bg-darkBg border border-borderCol rounded px-3 py-1.5 text-xs text-slate-200 outline-none focus:border-cyan-500">
-                        <button onclick="addNewProgram()" class="w-1/2 bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs py-1.5 rounded transition">
-                            + ADD CLASS
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-
-        <!-- COLUMN 2: FOCUS & EXAM PREP ENGINE -->
-        <div class="space-y-6">
-            <div class="bg-cardBg border border-borderCol rounded-xl p-5 shadow-lg">
-                <div class="flex items-center justify-between pb-3 border-b border-borderCol/60">
-                    <span class="text-xs font-mono tracking-widest text-slate-400 uppercase">Focus & Exam Prep Engine</span>
-                    <i data-lucide="timer" class="w-4 h-4 text-cyan-400"></i>
-                </div>
-
-                <!-- Session Presets -->
-                <div class="grid grid-cols-3 gap-2 mt-4">
-                    <button onclick="setTimerPreset('Pomodoro', 25)" class="text-xs font-mono bg-darkBg hover:bg-slate-800 border border-borderCol py-2 rounded-lg transition active:scale-95">25m Pomo</button>
-                    <button onclick="setTimerPreset('Deep Grind', 50)" class="text-xs font-mono bg-darkBg hover:bg-slate-800 border border-borderCol py-2 rounded-lg transition active:scale-95">50m Deep</button>
-                    <button onclick="setTimerPreset('Exam Paper', 120)" class="text-xs font-mono bg-darkBg hover:bg-slate-800 border border-borderCol py-2 rounded-lg transition active:scale-95">120m Paper</button>
-                </div>
-
-                <!-- Active Timer Display -->
-                <div class="text-center my-8">
-                    <div class="text-xs font-mono text-cyan-400 tracking-wider mb-2" id="current-session-label">POMODORO SESSION</div>
-                    <div class="text-6xl font-black font-mono tracking-tighter" id="timer-display">25:00</div>
-                </div>
-
-                <!-- Timer Controls -->
-                <div class="flex items-center justify-center gap-3">
-                    <button onclick="startTimer()" id="btn-timer-start" class="bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs px-6 py-2.5 rounded-lg transition flex items-center gap-2">
-                        <i data-lucide="play" class="w-3.5 h-3.5"></i> START
-                    </button>
-                    <button onclick="pauseTimer()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-xs px-4 py-2.5 rounded-lg transition">
-                        PAUSE
-                    </button>
-                    <button onclick="resetTimer()" class="bg-slate-800 hover:bg-slate-700 text-slate-400 font-mono text-xs px-4 py-2.5 rounded-lg transition">
-                        RESET
-                    </button>
-                </div>
-
-                <!-- Manual Fast-Log -->
-                <div class="mt-8 pt-4 border-t border-borderCol/60">
-                    <span class="text-xs font-mono text-slate-400 uppercase">Manual Session Logger</span>
-                    <div class="flex gap-2 mt-2">
-                        <input type="text" id="manual-focus-title" placeholder="Past Paper / Topic" class="w-full bg-darkBg border border-borderCol rounded px-3 py-1.5 text-xs text-slate-200 outline-none focus:border-cyan-500">
-                        <input type="number" id="manual-focus-min" placeholder="Mins" value="60" class="w-24 bg-darkBg border border-borderCol rounded px-3 py-1.5 text-xs text-slate-200 outline-none focus:border-cyan-500">
-                        <button onclick="logManualFocusSession()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded font-mono transition">
-                            LOG
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- COLUMN 3: SYNCED CALENDAR / LOGS -->
-        <div>
-            <div class="bg-cardBg border border-borderCol rounded-xl p-5 shadow-lg">
-                <div class="flex items-center justify-between pb-3 border-b border-borderCol/60">
-                    <span class="text-xs font-mono tracking-widest text-slate-400 uppercase">Operating Calendar Log</span>
-                    <i data-lucide="calendar" class="w-4 h-4 text-cyan-400"></i>
-                </div>
-
-                <div class="flex items-center justify-between mt-4 mb-2">
-                    <span class="text-xs font-mono text-slate-400" id="current-calendar-date">TODAY</span>
-                    <span class="text-[10px] font-mono bg-cyan-950 text-cyan-400 px-2 py-0.5 rounded border border-cyan-800" id="events-count-badge">0 EVENTS</span>
-                </div>
-
-                <!-- Event Feed -->
-                <div class="space-y-2.5 mt-3 max-h-[500px] overflow-y-auto pr-1" id="calendar-feed">
-                    <!-- Events injected via JS -->
-                </div>
-            </div>
-        </div>
-
+    <main id="swipeArea" class="flex-grow flex flex-col relative w-full max-w-[1600px] mx-auto bg-[#0a0f0a]">
+        <div id="gridHeader" class="flex border-b border-zinc-800 bg-[#080808] z-10 pl-[50px] hidden"></div>
+        <div id="timeGrid" class="time-grid-container w-full relative hidden"></div>
+        <div id="monthGrid" class="flex-grow grid grid-cols-7 divide-x divide-y divide-zinc-800 bg-zinc-950 border-t border-zinc-800 hidden"></div>
     </main>
 
     <!-- CLOUD CONFIG MODAL -->
-    <div id="sync-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
-        <div class="bg-cardBg border border-borderCol w-full max-w-md rounded-xl p-6 shadow-2xl space-y-4">
-            <div class="flex items-center justify-between pb-3 border-b border-borderCol">
-                <div class="flex items-center gap-2">
-                    <i data-lucide="cloud" class="w-4 h-4 text-cyan-400"></i>
-                    <h3 class="text-sm font-mono font-bold text-slate-200 uppercase">Cloud Sync Config (JSONBin.io)</h3>
-                </div>
-                <button onclick="closeSyncModal()" class="text-slate-400 hover:text-white">&times;</button>
+    <div id="cloudModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center z-[120] p-4 modal-bg">
+        <div class="bg-zinc-900 border border-zinc-700 rounded-xl w-full max-w-md p-6 flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center mb-4 border-b border-zinc-800 pb-2">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2 font-mono"><i data-lucide="cloud" class="w-4 h-4 text-[#00ccff]"></i> CLOUD SYNC CONFIG (JSONBIN.IO)</h3>
+                <button onclick="closeCloudModal()" class="text-zinc-500 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
-
-            <div class="space-y-3 font-mono text-xs">
+            <p class="text-xs text-zinc-400 font-mono mb-4 leading-relaxed">Enter your master key and bin ID below. Data will auto-sync across all devices where you load this.</p>
+            <div class="space-y-3">
                 <div>
-                    <label class="block text-slate-400 mb-1">JSONBIN MASTER KEY</label>
-                    <input type="password" id="cfg-master-key" class="w-full bg-darkBg border border-borderCol rounded p-2.5 text-slate-200 outline-none focus:border-cyan-500">
+                    <label class="text-[10px] font-mono text-zinc-400">JSONBIN MASTER KEY</label>
+                    <input type="password" id="cloudKeyInput" class="w-full bg-black border border-zinc-700 rounded p-2 text-white font-mono text-xs focus:outline-none focus:border-[#00ccff]" placeholder="$2a$10$...">
                 </div>
                 <div>
-                    <label class="block text-slate-400 mb-1">BIN ID</label>
-                    <input type="text" id="cfg-bin-id" class="w-full bg-darkBg border border-borderCol rounded p-2.5 text-slate-200 outline-none focus:border-cyan-500">
+                    <label class="text-[10px] font-mono text-zinc-400">BIN ID</label>
+                    <input type="text" id="cloudBinInput" class="w-full bg-black border border-zinc-700 rounded p-2 text-white font-mono text-xs focus:outline-none focus:border-[#00ccff]" placeholder="e.g., 65d1a89c266cfc3fde891234">
                 </div>
             </div>
-
-            <div class="flex gap-2 pt-2">
-                <button onclick="forcePushCloud()" class="w-1/2 bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs py-2.5 rounded-lg transition font-bold">
-                    FORCE PUSH
-                </button>
-                <button onclick="saveAndPullCloud()" class="w-1/2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-mono text-xs py-2.5 rounded-lg transition font-bold">
-                    SAVE & PULL
-                </button>
+            <div class="flex gap-2 mt-6">
+                <button onclick="saveCloudConfig()" class="flex-1 py-2 bg-[#00ccff] text-black font-mono font-bold text-xs rounded hover:bg-[#00b0dc] transition">SAVE & PULL</button>
+                <button onclick="pushCloudData(true)" class="flex-1 py-2 bg-zinc-800 border border-zinc-700 text-white font-mono font-bold text-xs rounded hover:bg-zinc-700 transition">FORCE PUSH</button>
             </div>
         </div>
     </div>
 
-    <!-- MAIN ENGINE SCRIPT -->
+    <!-- TOUCH GRASS OVERRIDE -->
+    <div id="touchGrassScreen" class="fixed inset-0 bg-[#00ff66] z-[9999] hidden flex-col items-center justify-center p-4">
+        <h1 class="text-black font-black text-6xl md:text-9xl mb-4 tracking-tighter">TOUCH GRASS.</h1>
+        <p class="text-black font-mono font-bold text-xl md:text-2xl text-center">4 CYCLES DETECTED. NEURAL FATIGUE IMMINENT.</p>
+        <p class="text-black font-mono font-bold text-lg text-center mt-4">GO DRINK ICED COFFEE AND STARE AT A WALL. THIS SYSTEM IS LOCKED.</p>
+        <div id="tgCountdown" class="text-black font-black text-[120px] tabular-nums mt-10 tracking-tighter">15:00</div>
+    </div>
+
+    <!-- AI AUDIT REPORT -->
+    <div id="auditModal" class="fixed inset-0 bg-black/95 hidden items-center justify-center z-50 p-4 modal-bg">
+        <div class="bg-zinc-950 border border-yellow-500 rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-[0_0_20px_rgba(234,179,8,0.2)]">
+            <div class="flex justify-between items-center p-6 border-b border-zinc-800">
+                <h3 class="text-xl font-bold text-yellow-500 font-mono flex items-center gap-2"><i data-lucide="file-text" class="w-5 h-5"></i> SYSTEM VIBE AUDIT</h3>
+                <button onclick="closeAudit()" class="text-zinc-500 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button>
+            </div>
+            <div class="p-6 overflow-y-auto">
+                <pre id="auditReportText" class="text-zinc-300 font-mono text-sm whitespace-pre-wrap leading-relaxed"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- TRANSIT SCRATCHPAD -->
+    <div id="scratchpadPanel" class="fixed top-0 right-0 h-full w-full md:w-96 bg-zinc-950 border-l border-zinc-800 z-[90] translate-x-full shadow-2xl flex flex-col">
+        <div class="p-4 border-b border-zinc-800 flex justify-between items-center bg-[#050505]">
+            <h3 class="text-[#00ff66] font-mono font-bold text-sm flex items-center gap-2"><i data-lucide="terminal" class="w-4 h-4"></i> TRANSIT MEMORY</h3>
+            <button onclick="toggleScratchpad()" class="text-zinc-500 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <textarea id="scratchpadText" class="flex-grow bg-zinc-950 text-[#00ff66] font-mono text-xs p-4 focus:outline-none resize-none leading-relaxed placeholder-zinc-700" placeholder="> Dump formulas here..." oninput="saveScratchpad()"></textarea>
+    </div>
+
+    <!-- FLASH-CORE MANAGER MODAL -->
+    <div id="flashManagerModal" class="fixed inset-0 bg-black/95 hidden items-center justify-center z-50 p-4 modal-bg">
+        <div class="bg-zinc-950 border border-zinc-700 rounded-xl w-full max-w-3xl max-h-[95vh] flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center p-4 md:p-6 border-b border-zinc-800 shrink-0">
+                <h3 class="text-xl font-bold text-[#00ff66] font-mono flex items-center gap-2"><i data-lucide="brain" class="w-5 h-5"></i> FLASH-CORE</h3>
+                <button onclick="closeFlashManager()" class="text-zinc-500 hover:text-white transition"><i data-lucide="x" class="w-6 h-6"></i></button>
+            </div>
+            
+            <div class="p-4 border-b border-zinc-800 bg-[#0a0f0a] shrink-0">
+                <div class="flex flex-col md:flex-row gap-2 mb-4">
+                    <select id="newFlashSub" class="bg-black border border-zinc-800 rounded p-2 text-white font-mono text-xs focus:outline-none"><option value="phys">Physics</option><option value="chem">Chemistry</option><option value="math">Maths</option></select>
+                    <input type="text" id="newFlashQ" class="flex-grow bg-black border border-zinc-800 rounded p-2 text-white font-mono text-xs focus:outline-none focus:border-[#00ff66]" placeholder="New Prompt/Question">
+                    <input type="text" id="newFlashA" class="flex-grow bg-black border border-zinc-800 rounded p-2 text-[#00ff66] font-mono text-xs focus:outline-none focus:border-[#00ff66]" placeholder="Exact Answer">
+                    <button onclick="addFlashcard()" class="px-4 py-2 bg-[#00ff66] text-black font-bold font-mono text-xs rounded hover:bg-[#00cc52] transition">ADD</button>
+                </div>
+                
+                <div class="border-t border-zinc-800/50 pt-3">
+                    <p class="text-[10px] text-zinc-500 font-mono mb-1">BULK IMPORT (Format: Question | Answer)</p>
+                    <div class="flex flex-col md:flex-row gap-2">
+                        <textarea id="bulkFlashInput" class="flex-grow bg-black border border-zinc-800 rounded p-2 text-white font-mono text-[10px] h-14 focus:outline-none focus:border-[#00ff66] placeholder-zinc-700" placeholder="E.g., What is force? | F=ma&#10;Speed of light? | 3x10^8"></textarea>
+                        <button onclick="bulkAddFlashcards()" class="px-4 py-2 bg-zinc-800 border border-zinc-700 text-[#00ff66] font-bold font-mono text-xs rounded hover:bg-zinc-700 transition whitespace-nowrap">BULK ADD</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-grow overflow-y-auto p-4 md:p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div><h4 class="text-[#ff3366] font-bold mb-3 border-b border-zinc-800 pb-1">PHYSICS (<span id="fcCountPhys">0</span>)</h4><div id="fcListPhys" class="space-y-2"></div></div>
+                <div><h4 class="text-[#00ccff] font-bold mb-3 border-b border-zinc-800 pb-1">CHEMISTRY (<span id="fcCountChem">0</span>)</h4><div id="fcListChem" class="space-y-2"></div></div>
+                <div><h4 class="text-[#cc66ff] font-bold mb-3 border-b border-zinc-800 pb-1">MATHS (<span id="fcCountMath">0</span>)</h4><div id="fcListMath" class="space-y-2"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SYS.BOOT BRIEFING MODAL -->
+    <div id="bootModal" class="fixed inset-0 bg-black/95 hidden items-center justify-center z-[110] p-4 modal-bg">
+        <div class="bg-zinc-900 border-2 border-[#00ccff] rounded-xl w-full max-w-md p-6 shadow-[0_0_30px_rgba(0,204,255,0.2)] flex flex-col items-center text-center transition-all overflow-y-auto max-h-[95vh]" id="bootContainer">
+            <i data-lucide="power" class="w-10 h-10 text-[#00ccff] mb-2 animate-pulse"></i>
+            <h2 class="text-xl font-black text-white tracking-widest mb-1">SYS.BOOT PROTOCOL</h2>
+            <p class="text-[10px] text-zinc-500 font-mono mb-4" id="bootDateDisplay"></p>
+            
+            <div class="w-full bg-zinc-950 border border-zinc-800 rounded p-3 mb-4 space-y-2 font-mono text-xs">
+                <div class="flex justify-between border-b border-zinc-800 pb-1"><span class="text-zinc-400">EXAM COUNTDOWN</span><span id="bootCountdown" class="text-[#00ff66] font-bold"></span></div>
+                <div class="flex justify-between border-b border-zinc-800 pb-1"><span class="text-zinc-400">TUITION LOAD</span><span id="bootTuition" class="text-[#ff3366] font-bold"></span></div>
+                <div class="flex justify-between"><span class="text-zinc-400">SOLO GRIND</span><span id="bootSolo" class="text-[#00ccff] font-bold"></span></div>
+            </div>
+
+            <div id="sleepLoggerSection" class="w-full bg-[#050505] border border-zinc-700 rounded p-4 mb-4 flex flex-col items-center">
+                <h3 class="text-[#cc66ff] font-mono text-[10px] font-bold mb-3 tracking-widest"><i data-lucide="moon" class="w-3 h-3 inline"></i> BURNOUT GUARDIAN</h3>
+                <label class="text-xs text-white font-mono mb-2">HOURS SLEPT LAST NIGHT?</label>
+                <input type="number" step="0.5" id="bootSleepInput" class="w-24 bg-black border border-zinc-600 text-white text-center p-2 text-lg font-mono focus:outline-none rounded mb-3">
+                <button onclick="processSleepLog()" class="px-6 py-2 bg-zinc-800 text-xs text-white rounded font-mono border border-zinc-700 hover:bg-zinc-700 transition">LOG SLEEP</button>
+            </div>
+
+            <div id="sleepWarningMsg" class="hidden w-full bg-red-950 border border-red-500 rounded p-3 mb-4 text-[10px] font-mono text-red-400 text-left"></div>
+            
+            <button id="standardAckBtn" onclick="unlockSysBoot()" class="w-full py-3 bg-white text-black font-bold rounded hover:bg-zinc-300 uppercase hidden tracking-widest transition">ACKNOWLEDGE</button>
+
+            <div id="flashInterceptor" class="w-full bg-[#050505] border border-[#ff3366] rounded p-4 hidden flex-col items-center relative">
+                <h3 class="text-[#ff3366] font-mono text-[10px] font-bold mb-3 tracking-widest">FLASH-CORE OVERRIDE</h3>
+                <p id="bootFlashQ" class="text-white font-bold text-sm mb-4 w-full break-words"></p>
+                <button id="bootFlashRevealBtn" onclick="revealBootFlashcard()" class="px-4 py-2 bg-zinc-800 text-xs text-white rounded w-full font-mono border border-zinc-700 hover:bg-zinc-700 transition">REVEAL ANSWER</button>
+                <div id="bootFlashInputArea" class="hidden w-full flex-col items-center gap-3">
+                    <p id="bootFlashA" class="text-[#00ff66] font-mono text-sm font-bold w-full break-words"></p>
+                    <input type="text" id="bootFlashInput" class="w-full bg-black border border-zinc-600 text-white text-center p-2 text-xs font-mono focus:border-[#00ff66] focus:outline-none rounded" placeholder="Type exact answer..." onkeyup="verifyBootFlashcard()">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HYBRID DEEP WORK POMODORO -->
+    <div id="deepWorkScreen" class="fixed inset-0 bg-[#020202] z-[100] hidden flex-col items-center p-6 overflow-y-auto">
+        <button onclick="toggleFullScreen()" class="absolute top-6 left-6 text-zinc-500 hover:text-white transition"><i data-lucide="maximize" class="w-7 h-7"></i></button>
+        <button onclick="toggleDeepWork()" class="absolute top-6 right-6 text-zinc-500 hover:text-[#ff003c] transition"><i data-lucide="x" class="w-8 h-8"></i></button>
+        
+        <div id="dwCountdownDisplay" class="mt-8 text-center text-[#ff3366] font-mono text-xs font-bold tracking-widest border border-[#ff3366]/30 px-4 py-2 rounded bg-[#ff3366]/10 mb-8">LOADING...</div>
+        
+        <h2 id="pomodoroLabel" class="text-[#00ff66] font-mono tracking-[0.2em] mb-4 text-xl animate-pulse">FOCUS RUN</h2>
+        
+        <div class="flex items-center gap-4 mb-6" id="timerInputsDiv">
+            <div class="flex flex-col items-center"><label class="text-[10px] text-zinc-500 font-mono mb-1">FOCUS</label><input type="number" id="focusInput" value="50" class="w-16 bg-transparent border-b-2 border-zinc-700 text-center text-2xl text-white font-mono focus:outline-none focus:border-[#00ff66]"></div>
+            <span class="text-zinc-700 text-2xl font-light">/</span>
+            <div class="flex flex-col items-center"><label class="text-[10px] text-zinc-500 font-mono mb-1">BREAK</label><input type="number" id="breakInput" value="10" class="w-16 bg-transparent border-b-2 border-zinc-700 text-center text-2xl text-white font-mono focus:outline-none focus:border-[#00ccff]"></div>
+        </div>
+
+        <div id="countdownDisplay" class="text-[100px] md:text-[150px] font-bold text-white font-mono tracking-tighter mb-4 tabular-nums drop-shadow-[0_0_20px_rgba(0,255,102,0.2)]">00:00</div>
+        
+        <div id="anomalyToast" class="text-xs font-mono font-bold text-[#cc66ff] tracking-widest h-6 mb-4 hidden animate-pulse"></div>
+
+        <div class="flex gap-4 md:gap-6 mb-10">
+            <button onclick="startTimer()" id="btnTimerStart" class="px-6 py-3 bg-[#00ff66] text-black font-bold rounded-full hover:bg-[#00cc52] transition">START CYCLE</button>
+            <button onclick="pauseTimer()" id="btnTimerPause" class="px-6 py-3 bg-zinc-800 text-white font-bold rounded-full hidden hover:bg-zinc-700 transition">PAUSE</button>
+            <button onclick="resetTimer()" class="px-6 py-3 bg-transparent border border-zinc-700 text-zinc-400 font-bold rounded-full hover:bg-zinc-800 transition hover:text-white">RESET</button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-4xl pb-10">
+            <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-4">
+                <p class="text-xs text-zinc-500 font-mono mb-3 flex items-center gap-2"><i data-lucide="music" class="w-4 h-4"></i> SPOTIFY INTEGRATION</p>
+                <input type="text" id="spotifyLink" class="w-full bg-black text-xs p-2 rounded border border-zinc-800 mb-3 focus:outline-none focus:border-[#00ff66] text-zinc-300" placeholder="Paste Spotify URL..." onchange="updateSpotify()">
+                <iframe id="spotifyFrame" src="https://open.spotify.com/embed/playlist/37i9dQZF1DWZeKCadgRdKQ" width="100%" height="152" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>
+            </div>
+
+            <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-4 flex flex-col justify-between">
+                <p class="text-xs text-zinc-500 font-mono mb-3 flex items-center gap-2"><i data-lucide="radio" class="w-4 h-4"></i> OFFLINE SYNTHESIZER</p>
+                <div class="space-y-4">
+                    <div>
+                        <select id="selBrown" class="w-full bg-black text-white text-xs border border-zinc-700 rounded p-2 font-mono mb-2 focus:outline-none focus:border-[#00ff66]">
+                            <option value="light">Light Brown Noise</option>
+                            <option value="deep">Deep Brown Noise</option>
+                            <option value="heavy">Heavy Rumble</option>
+                        </select>
+                        <button id="btnBrownNoise" onclick="toggleBrown()" class="w-full py-2 bg-black border border-zinc-700 text-zinc-400 text-xs font-mono rounded hover:border-[#00ff66] transition">PLAY NOISE</button>
+                    </div>
+                    <div>
+                        <select id="selBin" class="w-full bg-black text-white text-xs border border-zinc-700 rounded p-2 font-mono mb-2 focus:outline-none focus:border-[#cc66ff]">
+                            <option value="delta">Delta (2Hz - Sleep)</option>
+                            <option value="theta">Theta (6Hz - Flow)</option>
+                            <option value="alpha">Alpha (10Hz - Focus)</option>
+                            <option value="gamma">Gamma (40Hz - Alert)</option>
+                        </select>
+                        <button id="btnBinaural" onclick="toggleBin()" class="w-full py-2 bg-black border border-zinc-700 text-zinc-400 text-xs font-mono rounded hover:border-[#cc66ff] transition">PLAY BEATS</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="md:col-span-2 bg-zinc-900 rounded-xl border border-zinc-800 p-4">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-yellow-500 font-mono text-xs font-bold flex items-center gap-2"><i data-lucide="pizza" class="w-4 h-4"></i> UBER EATS BOUNTY</span>
+                    <span id="bountyPct" class="text-white font-mono text-[10px]">0% (0/100H)</span>
+                </div>
+                <div class="w-full bg-black h-2 rounded-full overflow-hidden mb-3 border border-zinc-700"><div id="bountyBar" class="bg-yellow-500 h-full transition-all duration-500" style="width: 0%;"></div></div>
+                <button id="bountyBtn" class="w-full py-1.5 bg-zinc-800 text-zinc-500 font-mono text-[10px] font-bold rounded transition" disabled>LOCKED: 100 HOURS REQ.</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EXAM HALL SIMULATOR -->
+    <div id="examScreen" class="fixed inset-0 bg-[#050000] z-[100] hidden flex-col items-center justify-center p-4">
+        <div class="absolute inset-0 pointer-events-none border-[4px] border-[#ff003c]/20 animate-pulse"></div>
+        <i data-lucide="skull" class="w-16 h-16 text-[#ff003c] mb-6 opacity-80"></i>
+        <h2 class="text-[#ff003c] font-black tracking-[0.3em] mb-2 text-2xl md:text-4xl text-center">EXAM SIMULATOR</h2>
+        <p class="text-zinc-500 font-mono text-xs md:text-sm mb-8 text-center tracking-widest uppercase">No Pause. No Mercy. Execute.</p>
+        
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 w-full max-w-4xl" id="examSetupDiv">
+            <button onclick="startExam(120)" class="p-4 bg-zinc-900 border border-[#ff3366]/50 rounded flex flex-col items-center hover:bg-[#ff3366]/10 transition"><span class="text-white font-bold text-xs">PHYS P1</span><span class="text-[#ff3366] font-mono">2:00:00</span></button>
+            <button onclick="startExam(180)" class="p-4 bg-zinc-900 border border-[#ff3366]/50 rounded flex flex-col items-center hover:bg-[#ff3366]/10 transition"><span class="text-white font-bold text-xs">PHYS P2</span><span class="text-[#ff3366] font-mono">3:00:00</span></button>
+            <button onclick="startExam(120)" class="p-4 bg-zinc-900 border border-[#00ccff]/50 rounded flex flex-col items-center hover:bg-[#00ccff]/10 transition"><span class="text-white font-bold text-xs">CHEM P1</span><span class="text-[#00ccff] font-mono">2:00:00</span></button>
+            <button onclick="startExam(180)" class="p-4 bg-zinc-900 border border-[#00ccff]/50 rounded flex flex-col items-center hover:bg-[#00ccff]/10 transition"><span class="text-white font-bold text-xs">CHEM P2</span><span class="text-[#00ccff] font-mono">3:00:00</span></button>
+            <button onclick="startExam(120)" class="p-4 bg-zinc-900 border border-[#cc66ff]/50 rounded flex flex-col items-center hover:bg-[#cc66ff]/10 transition"><span class="text-white font-bold text-xs">PURE MATH P1</span><span class="text-[#cc66ff] font-mono">2:00:00</span></button>
+            <button onclick="startExam(180)" class="p-4 bg-zinc-900 border border-[#cc66ff]/50 rounded flex flex-col items-center hover:bg-[#cc66ff]/10 transition"><span class="text-white font-bold text-xs">PURE MATH P2</span><span class="text-[#cc66ff] font-mono">3:00:00</span></button>
+            <button onclick="startExam(120)" class="p-4 bg-zinc-900 border border-[#00ff66]/50 rounded flex flex-col items-center hover:bg-[#00ff66]/10 transition"><span class="text-white font-bold text-xs">APP MATH P1</span><span class="text-[#00ff66] font-mono">2:00:00</span></button>
+            <button onclick="startExam(180)" class="p-4 bg-zinc-900 border border-[#00ff66]/50 rounded flex flex-col items-center hover:bg-[#00ff66]/10 transition"><span class="text-white font-bold text-xs">APP MATH P2</span><span class="text-[#00ff66] font-mono">3:00:00</span></button>
+        </div>
+
+        <div id="examCountdownDisplay" class="hidden text-[80px] md:text-[180px] font-bold text-white font-mono tracking-tighter mb-12 tabular-nums">00:00:00</div>
+        
+        <div class="flex gap-6 w-full max-w-md justify-center">
+            <button onclick="abortExam()" id="btnExamAbort" class="w-full py-4 bg-transparent border-2 border-[#ff003c] text-[#ff003c] font-bold rounded tracking-widest hover:bg-[#ff003c] hover:text-black transition">CANCEL</button>
+            <button onclick="submitExam()" id="btnExamSubmit" class="hidden w-full py-4 bg-[#00ff66] text-black font-bold rounded tracking-widest hover:bg-[#00cc52] transition">SUBMIT PAPER</button>
+        </div>
+    </div>
+
+    <!-- SKILL TREE MODAL -->
+    <div id="skillTreeModal" class="fixed inset-0 bg-black/95 hidden items-center justify-center z-50 p-4 modal-bg">
+        <div class="bg-zinc-950 border border-zinc-700 rounded-xl w-full max-w-6xl max-h-[90vh] flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center p-6 border-b border-zinc-800 shrink-0"><h3 class="text-xl font-bold text-[#cc66ff] tracking-widest"><i data-lucide="network" class="w-5 h-5 inline"></i> SYLLABUS SKILL TREE</h3><button onclick="closeSkillTree()" class="text-zinc-500 hover:text-white transition"><i data-lucide="x" class="w-6 h-6"></i></button></div>
+            <div class="p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-3 gap-8"><div id="tree-phys"></div><div id="tree-chem"></div><div id="tree-math"></div></div>
+        </div>
+    </div>
+
+    <!-- MATRIX MODAL -->
+    <div id="matrixModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center z-50 p-4 modal-bg">
+        <div class="bg-zinc-950 border border-zinc-700 rounded-xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center p-6 border-b border-zinc-800 shrink-0"><h3 class="text-xl font-bold text-white tracking-widest"><i data-lucide="check-square" class="text-[#00ccff] inline"></i> PAST PAPER MASTERY</h3><button onclick="closeMatrixModal()" class="text-zinc-500 hover:text-white transition"><i data-lucide="x" class="w-6 h-6"></i></button></div>
+            <div class="p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-3 gap-8"><div id="matrix-phys"></div><div id="matrix-chem"></div><div id="matrix-math"></div></div>
+        </div>
+    </div>
+
+    <!-- ADD/EDIT EVENT MODAL -->
+    <div id="modal" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-50 p-4 modal-bg">
+        <div class="bg-zinc-900 border border-zinc-700 rounded-xl w-full max-w-md p-6 flex flex-col">
+            <h3 id="modalTitle" class="text-lg font-bold text-white mb-4 border-b border-zinc-800 pb-2">Add / Edit Slot</h3>
+            <input type="hidden" id="eventId"><input type="hidden" id="eventOriginalId"><input type="hidden" id="eventIsBase"><input type="hidden" id="eventIsRecurring">
+            <div class="space-y-4">
+                <div><label class="text-xs text-zinc-400 font-mono">TITLE</label><input type="text" id="eventTitle" class="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white font-mono focus:outline-none focus:border-[#00ff66]"></div>
+                <div><label class="text-xs text-zinc-400 font-mono">DATE</label><input type="date" id="eventDate" class="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white font-mono focus:outline-none focus:border-[#00ff66]" style="color-scheme: dark;"></div>
+                <div class="flex gap-4">
+                    <div class="w-1/2"><label class="text-xs text-zinc-400 font-mono">START</label><input type="time" id="eventStart" class="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white font-mono focus:outline-none focus:border-[#00ff66]" style="color-scheme: dark;"></div>
+                    <div class="w-1/2"><label class="text-xs text-zinc-400 font-mono">END</label><input type="time" id="eventEnd" class="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white font-mono focus:outline-none focus:border-[#00ff66]" style="color-scheme: dark;"></div>
+                </div>
+                <div>
+                    <label class="text-xs text-zinc-400 font-mono">TYPE / CATEGORY</label>
+                    <select id="eventType" class="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white font-mono focus:outline-none focus:border-[#00ff66]">
+                        <optgroup label="Self Study"><option value="bg-solo">Solo Grind (Green)</option></optgroup>
+                        <optgroup label="Tuition Classes"><option value="bg-phys">Physics (Red)</option><option value="bg-chem">Chemistry (Blue)</option><option value="bg-math">Combined Maths (Purple)</option></optgroup>
+                        <optgroup label="Personal / Club"><option value="bg-club">Club / Jog / Sleep (Gold)</option></optgroup>
+                    </select>
+                </div>
+                <div id="eventRepeatContainer"><label class="text-xs text-zinc-400 font-mono">RECURRENCE</label><select id="eventRepeat" class="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-white font-mono focus:outline-none focus:border-[#00ff66]"><option value="none">Does not repeat</option><option value="weekly">Repeats every week</option></select></div>
+                <div id="editScopeContainer" class="hidden"><label class="text-xs text-zinc-400 font-mono">UPDATE SCOPE</label><select id="editScope" class="w-full bg-zinc-950 border border-[#ff003c] rounded p-2 text-white font-mono focus:outline-none focus:border-[#ff3366]"><option value="global">Update EVERY week (Global)</option><option value="single">Update ONLY this date</option></select></div>
+            </div>
+            <div class="flex justify-between items-center mt-6 pt-4 border-t border-zinc-800">
+                <button id="deleteBtn" class="px-4 py-2 text-sm text-red-500 hover:bg-red-950 rounded font-bold hidden transition">Delete</button>
+                <div class="ml-auto flex gap-3"><button onclick="closeModal()" class="px-4 py-2 text-sm text-zinc-400 hover:text-white transition">Cancel</button><button onclick="saveEvent()" class="px-6 py-2 text-sm bg-[#00ff66] text-black font-bold rounded hover:bg-[#00cc52] transition">Save</button></div>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // ==========================================
-        // 1. STATE INITIALIZATION
-        // ==========================================
-        const DEFAULT_STATE = {
-            studyMinutes: 0,
-            slackMinutes: 0,
-            programs: [
-                { id: 1, name: "Physics Combined Paper", durationMins: 120, checked: false },
-                { id: 2, name: "Chemistry Theory / Revision", durationMins: 90, checked: false },
-                { id: 3, name: "Pure Maths Class", durationMins: 150, checked: false }
-            ],
-            calendarEvents: [],
-            cloudKey: "",
-            binId: ""
+        // --- SYSTEM REPAIR PROTOCOL (V12 MIGRATION) ---
+        let defaultData = {
+            customEvents: {}, recurringEvents: [], deletedBaseEvents: {}, deletedGlobalBaseEvents: {},
+            pastPapers: { phys: {}, chem: {}, math: {} }, scratchpad: "", lastBoot: "",
+            flashcards: {
+                phys: [
+                    { id: "p1", q: "Formula for period of simple pendulum?", a: "T=2pi*sqrt(l/g)" }, { id: "p2", q: "Newton's Law of Viscosity?", a: "F=eta*A(dv/dx)" }, { id: "p3", q: "Work done in stretching a wire?", a: "W=1/2*F*e" }, { id: "p4", q: "First Law of Thermodynamics?", a: "dQ=dU+dW" }, { id: "p5", q: "Capacitance of a parallel plate capacitor?", a: "C=e0*A/d" }, { id: "p6", q: "Bernoulli's Equation?", a: "P+1/2*rho*v^2+rho*g*h=const" }, { id: "p7", q: "Doppler Effect (source moving away)?", a: "f'=f(v/(v+vs))" }, { id: "p8", q: "Photoelectric Equation?", a: "E=hf-Phi" }, { id: "p9", q: "Stefan-Boltzmann Law?", a: "P=sigma*A*T^4" }, { id: "p10", q: "Wien's Displacement Law?", a: "lambda_max*T=const" }, { id: "p11", q: "De Broglie wavelength?", a: "lambda=h/p" }, { id: "p12", q: "Magnetic force on a moving charge?", a: "F=q(v x B)" }, { id: "p13", q: "Faraday's Law of Induction?", a: "E=-N(dPhi/dt)" }, { id: "p14", q: "Root Mean Square velocity?", a: "v_rms=sqrt(3RT/M)" }, { id: "p15", q: "Hooke's Law?", a: "F=-kx" }
+                ],
+                chem: [
+                    { id: "c1", q: "Color of CrO4 2- ion?", a: "Yellow" }, { id: "c2", q: "Nucleophile in Friedel-Crafts alkylation?", a: "AlCl4-" }, { id: "c3", q: "Ideal Gas Law?", a: "PV=nRT" }, { id: "c4", q: "Oxidation state of Mn in KMnO4?", a: "+7" }, { id: "c5", q: "Reagent to convert primary alcohol to aldehyde?", a: "PCC" }, { id: "c6", q: "Formula for pH?", a: "-log[H+]" }, { id: "c7", q: "Reagents to convert Benzene to Nitrobenzene?", a: "Conc HNO3+Conc H2SO4" }, { id: "c8", q: "Molecular shape of SF6?", a: "Octahedral" }, { id: "c9", q: "Color of AgCl precipitate?", a: "White" }, { id: "c10", q: "Arrhenius equation?", a: "k=Ae^(-Ea/RT)" }, { id: "c11", q: "Reagent for Tollens' test?", a: "Ammoniacal silver nitrate" }, { id: "c12", q: "Henderson-Hasselbalch equation?", a: "pH=pKa+log([A-]/[HA])" }, { id: "c13", q: "Haber process catalyst?", a: "Iron" }, { id: "c14", q: "Contact process catalyst?", a: "V2O5" }, { id: "c15", q: "General formula of Alkanes?", a: "CnH2n+2" }
+                ],
+                math: [
+                    { id: "m1", q: "Derivative of tan(x)?", a: "sec^2(x)" }, { id: "m2", q: "Integration of 1/x dx?", a: "ln|x|+C" }, { id: "m3", q: "Roots of quadratic equation?", a: "x=(-b+-sqrt(b^2-4ac))/2a" }, { id: "m4", q: "Dot product of two perpendicular vectors?", a: "0" }, { id: "m5", q: "Equation of circle (center h,k)?", a: "(x-h)^2+(y-k)^2=r^2" }, { id: "m6", q: "sin(2x) identity?", a: "2sin(x)cos(x)" }, { id: "m7", q: "cos(2x) identity?", a: "cos^2(x)-sin^2(x)" }, { id: "m8", q: "Derivative of e^(ax)?", a: "a*e^(ax)" }, { id: "m9", q: "Integration of e^x dx?", a: "e^x+C" }, { id: "m10", q: "Derivative of ln(x)?", a: "1/x" }, { id: "m11", q: "sin^2(x) + cos^2(x) = ?", a: "1" }, { id: "m12", q: "Cross product of parallel vectors?", a: "0" }, { id: "m13", q: "Formula for arc length?", a: "s=r*theta" }, { id: "m14", q: "Volume of a sphere?", a: "4/3*pi*r^3" }, { id: "m15", q: "Derivative of sin(x)?", a: "cos(x)" }
+                ]
+            },
+            sleepLogs: {}, skillTree: { phys: {}, chem: {}, math: {} },
+            stats: { soloMinutes: 0, pomodorosToday: 0, lastBackup: "" }, audit: { skippedClasses: 0, verifiedClasses: {} }
         };
 
-        let state = JSON.parse(localStorage.getItem('AL_CORE_STATE')) || DEFAULT_STATE;
+        let rawData = localStorage.getItem('al_data_v12') || localStorage.getItem('al_data_v11') || localStorage.getItem('al_data_v10_1') || localStorage.getItem('al_data_v10');
+        let appData = rawData ? JSON.parse(rawData) : defaultData;
 
-        function saveLocalState() {
-            localStorage.setItem('AL_CORE_STATE', JSON.stringify(state));
-        }
+        if (!appData.stats) appData.stats = { soloMinutes: 0, pomodorosToday: 0, lastBackup: "" };
+        if (!appData.audit) appData.audit = { skippedClasses: 0, verifiedClasses: {} };
+        if (!appData.audit.verifiedClasses) appData.audit.verifiedClasses = {};
+        if (!appData.deletedGlobalBaseEvents) appData.deletedGlobalBaseEvents = {};
+        if (!appData.pastPapers) appData.pastPapers = { phys: {}, chem: {}, math: {} };
+        if (!appData.skillTree) appData.skillTree = { phys: {}, chem: {}, math: {} };
+        if (!appData.skillTree.phys) appData.skillTree = { phys: {}, chem: {}, math: {} };
+        if (!appData.sleepLogs) appData.sleepLogs = {};
+        if (!appData.flashcards || Array.isArray(appData.flashcards)) appData.flashcards = defaultData.flashcards;
 
-        // ==========================================
-        // 2. TOXIC RATIO CALCULATION ENGINE
-        // ==========================================
-        function updateToxicRatio() {
-            const studyHours = (state.studyMinutes / 60);
-            const slackHours = (state.slackMinutes / 60);
+        ['phys','chem','math'].forEach(s => { if(!appData.flashcards[s] || appData.flashcards[s].length === 0) appData.flashcards[s] = defaultData.flashcards[s]; });
 
-            document.getElementById('stat-study-hours').innerText = `${studyHours.toFixed(1)} hrs`;
-            document.getElementById('stat-slack-hours').innerText = `${slackHours.toFixed(1)} hrs`;
+        localStorage.setItem('al_data_v12', JSON.stringify(appData));
 
-            let ratio = 0;
-            if (studyHours > 0) {
-                ratio = (slackHours / studyHours);
-            } else if (slackHours > 0) {
-                ratio = slackHours * 2; // Penalize 0 study
-            }
+        lucide.createIcons();
+        const HOUR_HEIGHT = 60; let currentView = 'week'; let baseDate = new Date(); 
+        const EXAM_DATE = new Date('2027-08-03T00:00:00');
 
-            const ratioDisplay = document.getElementById('toxic-ratio-ui');
-            const ratioBadge = document.getElementById('toxic-badge');
-            
-            ratioDisplay.innerText = `${ratio.toFixed(1)}x`;
+        const BASE_SCHEDULE = [
+            { day: 0, start: '01:00', end: '05:45', title: 'Sleep Protocol', type: 'bg-club', id: 'base-sleep-0' },
+            { day: 1, start: '01:00', end: '05:45', title: 'Sleep Protocol', type: 'bg-club', id: 'base-sleep-1' },
+            { day: 2, start: '01:00', end: '05:45', title: 'Sleep Protocol', type: 'bg-club', id: 'base-sleep-2' },
+            { day: 3, start: '01:00', end: '05:45', title: 'Sleep Protocol', type: 'bg-club', id: 'base-sleep-3' },
+            { day: 4, start: '01:00', end: '05:45', title: 'Sleep Protocol', type: 'bg-club', id: 'base-sleep-4' },
+            { day: 5, start: '01:00', end: '05:45', title: 'Sleep Protocol', type: 'bg-club', id: 'base-sleep-5' },
+            { day: 6, start: '01:00', end: '05:45', title: 'Sleep Protocol', type: 'bg-club', id: 'base-sleep-6' },
 
-            if (studyHours === 0 && slackHours === 0) {
-                ratioBadge.className = "text-xs font-bold px-2.5 py-1 rounded bg-slate-800 text-slate-400 uppercase font-mono";
-                ratioBadge.innerText = "NO DATA";
-            } else if (ratio <= 0.3) {
-                ratioBadge.className = "text-xs font-bold px-2.5 py-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 uppercase font-mono";
-                ratioBadge.innerText = "LOCKED IN";
-            } else if (ratio <= 0.8) {
-                ratioBadge.className = "text-xs font-bold px-2.5 py-1 rounded bg-cyan-950 text-cyan-400 border border-cyan-800 uppercase font-mono";
-                ratioBadge.innerText = "BALANCED";
-            } else {
-                ratioBadge.className = "text-xs font-bold px-2.5 py-1 rounded bg-rose-950 text-rose-400 border border-rose-800 uppercase font-mono";
-                ratioBadge.innerText = "TOXIC DEFICIT";
-            }
-        }
+            { day: 1, start: '14:30', end: '17:45', title: 'Physics (Dinusha)', type: 'bg-phys', id: 'base-m1' },
+            { day: 2, start: '08:00', end: '13:30', title: 'Physics Pt 2 (Dinusha)', type: 'bg-phys', id: 'base-t1' },
+            { day: 2, start: '18:00', end: '21:00', title: 'Chemistry (Isuranga)', type: 'bg-chem', id: 'base-t2' },
+            { day: 3, start: '18:00', end: '20:30', title: 'Physics Pt 3 (Dinusha)', type: 'bg-phys', id: 'base-w1' },
+            { day: 4, start: '08:00', end: '13:30', title: 'Maths Paper Class', type: 'bg-math', id: 'base-th1' },
+            { day: 4, start: '14:30', end: '17:30', title: 'Physics (Anuka)', type: 'bg-phys', id: 'base-th2' },
+            { day: 6, start: '08:00', end: '11:30', title: 'Comb. Maths (Ruchintha)', type: 'bg-math', id: 'base-s1' },
+            { day: 6, start: '16:30', end: '19:30', title: 'Physics Pt 2 (Anuka)', type: 'bg-phys', id: 'base-s2' },
+            { day: 0, start: '12:30', end: '15:30', title: 'Chemistry (Sashika)', type: 'bg-chem', id: 'base-su1' }
+        ];
 
-        function addSlackHours() {
-            const val = parseFloat(document.getElementById('slack-input').value);
-            if (isNaN(val) || val <= 0) return;
-            state.slackMinutes += Math.round(val * 60);
-            document.getElementById('slack-input').value = "";
-            saveLocalState();
-            updateToxicRatio();
-            autoSyncCloud();
-        }
+        const SKILL_MODULES = {
+            phys: ["Measurement", "Mechanics", "Oscillations & Waves", "Thermal Physics", "Gravitational Field", "Electrostatic Field", "Current Electricity", "Electromagnetism", "Electronics", "Mechanical Prop. of Matter", "Matter & Radiation"],
+            chem: ["Atomic Structure", "Bonding", "Chemical Calculations", "Gaseous State", "Energetics", "s, p, d Block Elements", "Organic Chemistry", "Kinetics", "Equilibrium", "Electrochemistry", "Industrial Chemistry"],
+            math: ["Real Numbers & Functions", "Polynomials", "Trigonometry", "Differentiation", "Integration", "Straight Line", "Circle", "Permutations & Combinations", "Probability", "Vectors", "Kinematics", "Statics", "Dynamics"]
+        };
 
-        // ==========================================
-        // 3. CALENDAR ENGINE & LOGGING
-        // ==========================================
-        function logEventToCalendar(title, durationMins, type = 'focus') {
-            const now = new Date();
-            const dateStr = now.toISOString().split('T')[0];
-            const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        function formatDate(date) { return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0'); }
+        function timeToPx(timeStr) { const [h, m] = timeStr.split(':').map(Number); return (h + (m / 60)) * HOUR_HEIGHT; }
+        function getDurationHours(start, end) { const [sh, sm] = start.split(':').map(Number); const [eh, em] = end.split(':').map(Number); return (eh + em/60) - (sh + sm/60); }
 
-            state.calendarEvents.unshift({
-                id: Date.now(),
-                title: title,
-                duration: durationMins,
-                time: timeStr,
-                date: dateStr,
-                type: type
-            });
+        // --- JSONBIN.IO CLOUD ENGINE ---
+        let cloudConfig = JSON.parse(localStorage.getItem('al_cloud_config')) || { key: '', bin: '' };
+        let syncTimeout = null;
 
-            saveLocalState();
-            renderCalendar();
-            autoSyncCloud();
-        }
-
-        function renderCalendar() {
-            const feed = document.getElementById('calendar-feed');
-            feed.innerHTML = "";
-
-            document.getElementById('events-count-badge').innerText = `${state.calendarEvents.length} SESSIONS`;
-
-            if (state.calendarEvents.length === 0) {
-                feed.innerHTML = `<div class="text-xs text-slate-500 font-mono text-center py-8">No recorded study blocks yet.</div>`;
+        function updateCloudUI(state) {
+            const btn = document.getElementById('cloudStatusBtn');
+            const txt = document.getElementById('cloudStatusText');
+            if (!cloudConfig.key || !cloudConfig.bin) {
+                btn.className = "text-[10px] font-mono px-2 py-1 rounded bg-zinc-900 border border-zinc-700 text-zinc-500 flex items-center gap-1 hover:border-zinc-400";
+                txt.innerText = "OFFLINE";
                 return;
             }
-
-            state.calendarEvents.forEach(evt => {
-                const el = document.createElement('div');
-                const isExam = evt.type === 'exam';
-                const isClass = evt.type === 'class';
-
-                let border = "border-cyan-900/60 bg-darkBg/60";
-                let textCol = "text-cyan-400";
-                if (isExam) { border = "border-purple-900/60 bg-darkBg/60"; textCol = "text-purple-400"; }
-                if (isClass) { border = "border-emerald-900/60 bg-darkBg/60"; textCol = "text-emerald-400"; }
-
-                el.className = `p-3 rounded-lg border ${border} flex items-center justify-between text-xs font-mono`;
-                el.innerHTML = `
-                    <div>
-                        <div class="font-bold ${textCol}">${evt.title}</div>
-                        <div class="text-[10px] text-slate-500 mt-0.5">${evt.date} • ${evt.time}</div>
-                    </div>
-                    <span class="px-2 py-0.5 rounded bg-slate-900 text-slate-300 font-mono text-[11px] border border-borderCol">
-                        +${evt.duration}m
-                    </span>
-                `;
-                feed.appendChild(el);
-            });
-        }
-
-        // ==========================================
-        // 4. CLASS & PROGRAM ACCOUNTABILITY INTERROGATION
-        // ==========================================
-        function renderPrograms() {
-            const list = document.getElementById('programs-list');
-            list.innerHTML = "";
-
-            state.programs.forEach(prog => {
-                const el = document.createElement('div');
-                el.className = "bg-darkBg/80 p-3 rounded-lg border border-borderCol flex items-center justify-between gap-2";
-                el.innerHTML = `
-                    <div>
-                        <div class="text-xs font-bold ${prog.checked ? 'text-slate-500 line-through' : 'text-slate-200'}">${prog.name}</div>
-                        <div class="text-[10px] font-mono text-slate-400">${prog.durationMins} mins scheduled</div>
-                    </div>
-                    <div>
-                        ${prog.checked 
-                            ? `<span class="text-[10px] font-mono text-slate-500 uppercase px-2 py-1 bg-slate-900 rounded">Logged</span>`
-                            : `<button onclick="interrogateClass(${prog.id})" class="text-[11px] font-mono bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-800 px-3 py-1.5 rounded transition">
-                                VERIFY
-                               </button>`
-                        }
-                    </div>
-                `;
-                list.appendChild(el);
-            });
-        }
-
-        function addNewProgram() {
-            const name = document.getElementById('new-program-name').value.trim();
-            const dur = parseInt(document.getElementById('new-program-dur').value);
-
-            if (!name || isNaN(dur) || dur <= 0) return;
-
-            state.programs.push({
-                id: Date.now(),
-                name: name,
-                durationMins: dur,
-                checked: false
-            });
-
-            document.getElementById('new-program-name').value = "";
-            saveLocalState();
-            renderPrograms();
-            autoSyncCloud();
-        }
-
-        function interrogateClass(programId) {
-            const prog = state.programs.find(p => p.id === programId);
-            if (!prog) return;
-
-            const didAttend = confirm(`NO CAP: Did you actually attend "${prog.name}" or did you skip it?\n\n[ OK = Attended ]\n[ Cancel = Skipped ]`);
-
-            if (didAttend) {
-                alert(`Massive W. Logging ${prog.durationMins} minutes into your real study ledger.`);
-                state.studyMinutes += prog.durationMins;
-                logEventToCalendar(`Class Attended: ${prog.name}`, prog.durationMins, 'class');
-            } else {
-                alert(`Fat L. Stop ghosting your own future. Penalty added to your toxic ratio.`);
-                state.slackMinutes += prog.durationMins; // Add duration directly as penalty screen/slack time
+            if (state === 'syncing') {
+                btn.className = "text-[10px] font-mono px-2 py-1 rounded bg-yellow-950 border border-yellow-500 text-yellow-400 flex items-center gap-1 animate-pulse";
+                txt.innerText = "SYNCING...";
+            } else if (state === 'synced') {
+                btn.className = "text-[10px] font-mono px-2 py-1 rounded bg-zinc-900 border border-[#00ccff]/50 text-[#00ccff] flex items-center gap-1";
+                txt.innerText = "SYNCED";
+            } else if (state === 'error') {
+                btn.className = "text-[10px] font-mono px-2 py-1 rounded bg-red-950 border border-red-500 text-red-400 flex items-center gap-1";
+                txt.innerText = "SYNC ERR";
             }
-
-            prog.checked = true;
-            saveLocalState();
-            updateToxicRatio();
-            renderPrograms();
-            autoSyncCloud();
+            lucide.createIcons();
         }
 
-        // ==========================================
-        // 5. TIMER ENGINE
-        // ==========================================
-        let timerSeconds = 25 * 60;
-        let timerInterval = null;
-        let currentModeTitle = "Pomodoro";
-        let currentModeDuration = 25;
-
-        function setTimerPreset(label, mins) {
-            pauseTimer();
-            currentModeTitle = label;
-            currentModeDuration = mins;
-            timerSeconds = mins * 60;
-            document.getElementById('current-session-label').innerText = `${label.toUpperCase()} SESSION`;
-            renderTimer();
-        }
-
-        function renderTimer() {
-            const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
-            const s = (timerSeconds % 60).toString().padStart(2, '0');
-            document.getElementById('timer-display').innerText = `${m}:${s}`;
-        }
-
-        function startTimer() {
-            if (timerInterval) return;
-            timerInterval = setInterval(() => {
-                if (timerSeconds > 0) {
-                    timerSeconds--;
-                    renderTimer();
-                } else {
-                    finishTimerSession();
-                }
-            }, 1000);
-        }
-
-        function pauseTimer() {
-            clearInterval(timerInterval);
-            timerInterval = null;
-        }
-
-        function resetTimer() {
-            pauseTimer();
-            timerSeconds = currentModeDuration * 60;
-            renderTimer();
-        }
-
-        function finishTimerSession() {
-            pauseTimer();
-            alert(`Session Complete: ${currentModeTitle}. Progress automatically saved.`);
-            
-            // 1. Add to study minutes
-            state.studyMinutes += currentModeDuration;
-            
-            // 2. Force calendar log
-            const type = currentModeTitle.toLowerCase().includes('paper') ? 'exam' : 'focus';
-            logEventToCalendar(`Grind: ${currentModeTitle}`, currentModeDuration, type);
-            
-            // 3. Recalculate Toxic ratio immediately
-            updateToxicRatio();
-            
-            // 4. Reset timer
-            resetTimer();
-        }
-
-        function logManualFocusSession() {
-            const title = document.getElementById('manual-focus-title').value.trim() || "Deep Grind";
-            const mins = parseInt(document.getElementById('manual-focus-min').value);
-
-            if (isNaN(mins) || mins <= 0) return;
-
-            state.studyMinutes += mins;
-            logEventToCalendar(`Prep: ${title}`, mins, 'exam');
-            updateToxicRatio();
-            document.getElementById('manual-focus-title').value = "";
-        }
-
-        // ==========================================
-        // 6. JSONBIN.IO CLOUD SYNC ENGINE
-        // ==========================================
-        function openSyncModal() {
-            document.getElementById('cfg-master-key').value = state.cloudKey || "";
-            document.getElementById('cfg-bin-id').value = state.binId || "";
-            document.getElementById('sync-modal').classList.remove('hidden');
-            document.getElementById('sync-modal').classList.add('flex');
-        }
-
-        function closeSyncModal() {
-            document.getElementById('sync-modal').classList.add('hidden');
-            document.getElementById('sync-modal').classList.remove('flex');
-        }
-
-        function setSyncStatus(status) {
-            const pill = document.getElementById('sync-text');
-            const ind = document.getElementById('sync-indicator');
-
-            if (status === 'synced') {
-                pill.innerText = "[ SYNCED ]";
-                pill.className = "text-xs font-mono text-cyan-400";
-                ind.className = "w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#06b6d4]";
-            } else if (status === 'syncing') {
-                pill.innerText = "[ SYNCING ]";
-                pill.className = "text-xs font-mono text-amber-400";
-                ind.className = "w-2 h-2 rounded-full bg-amber-400 animate-pulse";
-            } else {
-                pill.innerText = "[ OFFLINE ]";
-                pill.className = "text-xs font-mono text-slate-400";
-                ind.className = "w-2 h-2 rounded-full bg-slate-500";
-            }
-        }
-
-        async function forcePushCloud() {
-            const masterKey = document.getElementById('cfg-master-key').value.trim();
-            const binId = document.getElementById('cfg-bin-id').value.trim();
-
-            if (!masterKey || !binId) {
-                alert("Both Master Key and Bin ID are required.");
-                return;
-            }
-
-            state.cloudKey = masterKey;
-            state.binId = binId;
-            saveLocalState();
-            setSyncStatus('syncing');
-
+        async function pullCloudData() {
+            if (!cloudConfig.key || !cloudConfig.bin) return;
+            updateCloudUI('syncing');
             try {
-                const response = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+                const res = await fetch(`https://api.jsonbin.io/v3/b/${cloudConfig.bin}/latest`, {
+                    headers: { 'X-Master-Key': cloudConfig.key }
+                });
+                if (!res.ok) throw new Error("Fetch failed");
+                const json = await res.json();
+                if (json.record && json.record.stats) {
+                    appData = json.record;
+                    localStorage.setItem('al_data_v12', JSON.stringify(appData));
+                    render();
+                    updateCloudUI('synced');
+                }
+            } catch (err) {
+                console.error(err);
+                updateCloudUI('error');
+            }
+        }
+
+        async function pushCloudData(isManual = false) {
+            if (!cloudConfig.key || !cloudConfig.bin) return;
+            updateCloudUI('syncing');
+            try {
+                const res = await fetch(`https://api.jsonbin.io/v3/b/${cloudConfig.bin}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-Master-Key': masterKey
+                        'X-Master-Key': cloudConfig.key
                     },
-                    body: JSON.stringify(state)
+                    body: JSON.stringify(appData)
                 });
-
-                if (response.ok) {
-                    setSyncStatus('synced');
-                    closeSyncModal();
-                    alert("Cloud Sync Complete: Data locked into JSONBin.");
-                } else {
-                    throw new Error("HTTP " + response.status);
-                }
+                if (!res.ok) throw new Error("Push failed");
+                updateCloudUI('synced');
+                if (isManual) alert("Cloud Sync Complete.");
             } catch (err) {
-                setSyncStatus('offline');
-                alert("Sync Error: " + err.message);
+                console.error(err);
+                updateCloudUI('error');
+                if (isManual) alert("Cloud Sync Failed. Check Key and Bin ID.");
             }
         }
 
-        async function saveAndPullCloud() {
-            const masterKey = document.getElementById('cfg-master-key').value.trim();
-            const binId = document.getElementById('cfg-bin-id').value.trim();
+        function triggerCloudSync() {
+            localStorage.setItem('al_data_v12', JSON.stringify(appData));
+            if (!cloudConfig.key || !cloudConfig.bin) return;
+            clearTimeout(syncTimeout);
+            updateCloudUI('syncing');
+            syncTimeout = setTimeout(() => { pushCloudData(false); }, 1500); // 1.5s debounce
+        }
 
-            if (!masterKey || !binId) {
-                alert("Both Master Key and Bin ID are required.");
+        function openCloudModal() {
+            document.getElementById('cloudKeyInput').value = cloudConfig.key || '';
+            document.getElementById('cloudBinInput').value = cloudConfig.bin || '';
+            document.getElementById('cloudModal').classList.remove('hidden');
+            document.getElementById('cloudModal').classList.add('flex');
+        }
+        function closeCloudModal() {
+            document.getElementById('cloudModal').classList.add('hidden');
+            document.getElementById('cloudModal').classList.remove('flex');
+        }
+        function saveCloudConfig() {
+            cloudConfig.key = document.getElementById('cloudKeyInput').value.trim();
+            cloudConfig.bin = document.getElementById('cloudBinInput').value.trim();
+            localStorage.setItem('al_cloud_config', JSON.stringify(cloudConfig));
+            closeCloudModal();
+            pullCloudData();
+        }
+
+        // --- BACKUP SWITCH ---
+        function checkDeadManSwitch() {
+            const el = document.getElementById('deadManSwitch');
+            if (el && new Date().getDay() === 5 && appData.stats.lastBackup !== formatDate(new Date())) { el.classList.remove('hidden'); } else if (el) { el.classList.add('hidden'); }
+        }
+        function exportData() {
+            appData.stats.lastBackup = formatDate(new Date()); triggerCloudSync(); checkDeadManSwitch();
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData, null, 2));
+            const a = document.createElement('a'); a.href = dataStr; a.download = `AL_OS_V12_${formatDate(new Date())}.json`;
+            document.body.appendChild(a); a.click(); a.remove();
+        }
+        function importData(e) {
+            const f = e.target.files[0]; if(!f) return; const r = new FileReader();
+            r.onload = ev => { appData = JSON.parse(ev.target.result); triggerCloudSync(); alert("Backup Loaded. Reloading UI."); location.reload(); };
+            r.readAsText(f);
+        }
+
+        function updateCountdowns() {
+            const diff = EXAM_DATE - new Date();
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const weeks = Math.floor(days / 7);
+            const headerCd = document.getElementById('headerCountdown'); if (headerCd) headerCd.innerText = `T-MINUS ${days} DAYS`;
+            const dwCd = document.getElementById('dwCountdownDisplay'); if (dwCd) dwCd.innerText = `${days} DAYS // ${weeks} WEEKS UNTIL A/L EXAM`;
+            return { days, weeks };
+        }
+
+        // --- WEB AUDIO AMBIENT SYNTH (HYBRID) ---
+        let audioCtx, brownNode, brownFilter, brownGain, binOscL, binOscR, binMerge, binGain;
+        function initAudio() { if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+
+        function toggleBrown() {
+            initAudio();
+            let type = document.getElementById('selBrown').value;
+            let btn = document.getElementById('btnBrownNoise');
+            
+            if (brownNode && btn.innerText === 'STOP NOISE') {
+                brownNode.stop(); brownNode.disconnect(); brownNode = null;
+                btn.innerText = 'PLAY NOISE'; btn.classList.remove('text-[#00ff66]', 'border-[#00ff66]');
                 return;
             }
+            if (brownNode) { brownNode.stop(); brownNode.disconnect(); }
 
-            state.cloudKey = masterKey;
-            state.binId = binId;
-            setSyncStatus('syncing');
+            let bufferSize = audioCtx.sampleRate * 2; let buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            let out = buffer.getChannelData(0); let last = 0;
+            for (let i = 0; i < bufferSize; i++) { let white = Math.random() * 2 - 1; out[i] = (last + (0.02 * white)) / 1.02; last = out[i]; out[i] *= 3.5; }
+            brownNode = audioCtx.createBufferSource(); brownNode.buffer = buffer; brownNode.loop = true;
+            
+            brownFilter = audioCtx.createBiquadFilter(); brownFilter.type = 'lowpass';
+            if(type === 'light') brownFilter.frequency.value = 800; else if(type === 'deep') brownFilter.frequency.value = 400; else if(type === 'heavy') brownFilter.frequency.value = 150;
 
-            try {
-                const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
-                    headers: { 'X-Master-Key': masterKey }
-                });
+            brownGain = audioCtx.createGain(); brownGain.gain.value = 0.3;
+            brownNode.connect(brownFilter); brownFilter.connect(brownGain); brownGain.connect(audioCtx.destination);
+            brownNode.start();
+            btn.innerText = 'STOP NOISE'; btn.classList.add('text-[#00ff66]', 'border-[#00ff66]');
+        }
 
-                if (!res.ok) throw new Error("HTTP " + res.status);
+        function toggleBin() {
+            initAudio();
+            let type = document.getElementById('selBin').value;
+            let btn = document.getElementById('btnBinaural');
+            
+            if (binOscL && btn.innerText === 'STOP BEATS') {
+                binOscL.stop(); binOscR.stop(); binOscL.disconnect(); binOscR.disconnect(); binOscL = null;
+                btn.innerText = 'PLAY BEATS'; btn.classList.remove('text-[#cc66ff]', 'border-[#cc66ff]');
+                return;
+            }
+            if (binOscL) { binOscL.stop(); binOscR.stop(); binOscL.disconnect(); binOscR.disconnect(); }
 
-                const data = await res.json();
-                if (data.record) {
-                    state = data.record;
-                    saveLocalState();
-                    refreshFullUI();
-                    setSyncStatus('synced');
-                    closeSyncModal();
-                    alert("Data Pulled: Loaded latest remote ledger.");
+            let diff = type==='delta'?2 : type==='theta'?6 : type==='alpha'?10 : 40; let baseFreq = 200;
+            binOscL = audioCtx.createOscillator(); binOscR = audioCtx.createOscillator(); binMerge = audioCtx.createChannelMerger(2);
+            binOscL.type = 'sine'; binOscL.frequency.value = baseFreq; binOscR.type = 'sine'; binOscR.frequency.value = baseFreq + diff;
+            binOscL.connect(binMerge, 0, 0); binOscR.connect(binMerge, 0, 1);
+            
+            binGain = audioCtx.createGain(); binGain.gain.value = 0.15;
+            binMerge.connect(binGain); binGain.connect(audioCtx.destination);
+            binOscL.start(); binOscR.start();
+            btn.innerText = 'STOP BEATS'; btn.classList.add('text-[#cc66ff]', 'border-[#cc66ff]');
+        }
+
+        function updateBounty() {
+            let hours = appData.stats.soloMinutes / 60; let pct = Math.min(100, Math.round((hours / 100) * 100));
+            const bar = document.getElementById('bountyBar'); const pctLabel = document.getElementById('bountyPct'); const btn = document.getElementById('bountyBtn');
+            if (bar && pctLabel && btn) {
+                bar.style.width = `${pct}%`; pctLabel.innerText = `${pct}% (${hours.toFixed(1)}/100H)`;
+                if(pct >= 100) {
+                    btn.innerText = "CLAIM BOUNTY (JUNK FOOD UNLOCKED)";
+                    btn.className = "w-full py-1.5 bg-yellow-500 text-black font-mono text-[10px] font-bold rounded shadow-[0_0_10px_rgba(234,179,8,0.5)] animate-pulse cursor-pointer";
+                    btn.disabled = false;
+                    btn.onclick = () => { alert("Reward Claimed. Progress Reset."); appData.stats.soloMinutes = 0; updateBounty(); triggerCloudSync(); };
                 }
-            } catch (err) {
-                setSyncStatus('offline');
-                alert("Pull Error: " + err.message);
             }
         }
 
-        function autoSyncCloud() {
-            if (!state.cloudKey || !state.binId) return;
-            setSyncStatus('syncing');
-            fetch(`https://api.jsonbin.io/v3/b/${state.binId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Master-Key': state.cloudKey
-                },
-                body: JSON.stringify(state)
-            }).then(res => {
-                if (res.ok) setSyncStatus('synced');
-                else setSyncStatus('offline');
-            }).catch(() => setSyncStatus('offline'));
+        function openAudit() {
+            let hrs = appData.stats.soloMinutes / 60; let skipped = appData.audit.skippedClasses; let txt = `## WEEKLY VIBE CHECK\n\n`;
+            if (hrs < 5) txt += `Bro is absolutely cooked. ${hrs.toFixed(1)} hours of solo grind? It's giving 'retaking the exam in 2028'. You need to lock in respectfully.\n`;
+            else if (hrs < 15) txt += `Mid effort no cap. ${hrs.toFixed(1)} hours is okay, but you're leaving gains on the table. Let him cook, but turn the stove up.\n`;
+            else txt += `Massive W. ${hrs.toFixed(1)} hours logged. You are literally him. Keep sweating.\n`;
+            if (skipped > 0) txt += `\nAlso, you ghosted ${skipped} classes. Hope you actually studied instead of scrolling TikTok.`;
+            else txt += `\nZero skipped classes. Perfect attendance flex. W mans.`;
+            document.getElementById('auditReportText').innerText = txt; document.getElementById('auditModal').classList.remove('hidden'); document.getElementById('auditModal').classList.add('flex');
+        }
+        function closeAudit() { document.getElementById('auditModal').classList.add('hidden'); document.getElementById('auditModal').classList.remove('flex'); }
+
+        function triggerAnomaly() {
+            let hrs = appData.stats.soloMinutes / 60; let grade = hrs > 15 ? 'A' : hrs > 8 ? 'B' : hrs > 3 ? 'C' : 'F';
+            let t = document.getElementById('anomalyToast'); 
+            if(t) { t.innerText = `[ ANOMALY ] OUTPUT LEVEL: ${grade}. KEEP PUSHING.`; t.classList.remove('hidden'); setTimeout(()=>t.classList.add('hidden'), 5000); }
         }
 
-        // ==========================================
-        // 7. BOOT ROUTINE
-        // ==========================================
-        function refreshFullUI() {
-            updateToxicRatio();
-            renderPrograms();
-            renderCalendar();
-            renderTimer();
-            if (state.cloudKey && state.binId) setSyncStatus('synced');
+        // --- SYS.BOOT ---
+        let currentBootFlash = null;
+        function runSysBoot() {
+            checkDeadManSwitch(); const todayStr = formatDate(new Date());
+            if (appData.lastBoot !== todayStr) {
+                appData.stats.pomodorosToday = 0; 
+                let tuitionHours = 0; let soloHours = 0;
+                getEventsForDate(new Date()).forEach(ev => { let hrs = getDurationHours(ev.start, ev.end); if (ev.type === 'bg-solo') soloHours += hrs; else if(ev.type !== 'bg-club') tuitionHours += hrs; });
+                const { days } = updateCountdowns();
+                document.getElementById('bootDateDisplay').innerText = new Date().toDateString(); document.getElementById('bootCountdown').innerText = `${days} DAYS LEFT`;
+                document.getElementById('bootTuition').innerText = `${tuitionHours.toFixed(1)} HOURS`; document.getElementById('bootSolo').innerText = `${soloHours.toFixed(1)} HOURS`;
+                document.getElementById('bootModal').classList.remove('hidden'); document.getElementById('bootModal').classList.add('flex');
+                document.getElementById('sleepLoggerSection').classList.remove('hidden'); document.getElementById('standardAckBtn').classList.add('hidden'); document.getElementById('flashInterceptor').classList.add('hidden');
+            }
+        }
+        function processSleepLog() {
+            const hrs = parseFloat(document.getElementById('bootSleepInput').value); if (isNaN(hrs)) return; appData.sleepLogs[formatDate(new Date())] = hrs;
+            let totalSleep = 0; let daysCount = 0;
+            for (let i = 0; i < 7; i++) { let d = new Date(); d.setDate(d.getDate() - i); let s = appData.sleepLogs[formatDate(d)]; if (s !== undefined) { totalSleep += s; daysCount++; } }
+            let avg = daysCount > 0 ? (totalSleep / daysCount) : hrs;
+            document.getElementById('sleepLoggerSection').classList.add('hidden');
+            if (avg < 5) { const warn = document.getElementById('sleepWarningMsg'); warn.innerHTML = `<i data-lucide="alert-triangle" class="w-3 h-3 inline mr-1"></i> CRITICAL WARNING: 7-Day sleep avg is ${avg.toFixed(1)} hrs. Memory retention dropping.`; warn.classList.remove('hidden'); }
+            
+            let subs = ['phys','chem','math'].filter(s => appData.flashcards[s] && appData.flashcards[s].length > 0);
+            if (subs.length > 0) {
+                let s = subs[Math.floor(Math.random()*subs.length)];
+                currentBootFlash = appData.flashcards[s][Math.floor(Math.random()*appData.flashcards[s].length)];
+                document.getElementById('bootFlashQ').innerText = `[${s.toUpperCase()}] ${currentBootFlash.q}`; document.getElementById('bootFlashA').innerText = currentBootFlash.a;
+                document.getElementById('flashInterceptor').classList.remove('hidden'); document.getElementById('flashInterceptor').classList.add('flex');
+            } else { document.getElementById('standardAckBtn').classList.remove('hidden'); }
+            triggerCloudSync(); lucide.createIcons();
+        }
+        function revealBootFlashcard() { document.getElementById('bootFlashRevealBtn').classList.add('hidden'); document.getElementById('bootFlashInputArea').classList.remove('hidden'); document.getElementById('bootFlashInputArea').classList.add('flex'); document.getElementById('bootFlashInput').focus(); }
+        function verifyBootFlashcard() {
+            const input = document.getElementById('bootFlashInput').value.trim().toLowerCase(); const target = currentBootFlash.a.trim().toLowerCase();
+            if (input === target) { document.getElementById('flashInterceptor').classList.replace('border-[#ff3366]', 'border-[#00ff66]'); setTimeout(() => { unlockSysBoot(); }, 500); } 
+            else { document.getElementById('bootFlashError').classList.toggle('hidden', input.length < target.length); }
+        }
+        function unlockSysBoot() { appData.lastBoot = formatDate(new Date()); triggerCloudSync(); document.getElementById('bootModal').classList.add('hidden'); document.getElementById('bootModal').classList.remove('flex'); }
+
+        // --- FLASH-CORE MANAGER ---
+        function openFlashManager() {
+            ['phys','chem','math'].forEach(s => {
+                const list = document.getElementById(`fcList${s.charAt(0).toUpperCase()+s.slice(1)}`); list.innerHTML = '';
+                document.getElementById(`fcCount${s.charAt(0).toUpperCase()+s.slice(1)}`).innerText = (appData.flashcards[s] || []).length;
+                (appData.flashcards[s] || []).forEach(fc => {
+                    list.innerHTML += `<div class="bg-zinc-900 border border-zinc-800 p-2 rounded flex justify-between"><div class="pr-2"><p class="text-white text-[10px] font-bold">${fc.q}</p><p class="text-zinc-500 font-mono text-[9px]">${fc.a}</p></div><button onclick="deleteFlashcard('${s}','${fc.id}')" class="text-red-500 hover:text-white transition"><i data-lucide="trash-2" class="w-3 h-3"></i></button></div>`;
+                });
+            });
+            document.getElementById('flashManagerModal').classList.remove('hidden'); document.getElementById('flashManagerModal').classList.add('flex'); lucide.createIcons();
+        }
+        function closeFlashManager() { document.getElementById('flashManagerModal').classList.add('hidden'); document.getElementById('flashManagerModal').classList.remove('flex'); }
+        function addFlashcard() {
+            const s = document.getElementById('newFlashSub').value; const q = document.getElementById('newFlashQ').value.trim(); const a = document.getElementById('newFlashA').value.trim();
+            if(!q || !a) return; appData.flashcards[s].push({ id: Date.now().toString(), q, a }); triggerCloudSync();
+            document.getElementById('newFlashQ').value = ''; document.getElementById('newFlashA').value = ''; openFlashManager();
+        }
+        function bulkAddFlashcards() {
+            const s = document.getElementById('newFlashSub').value;
+            const text = document.getElementById('bulkFlashInput').value;
+            const lines = text.split('\n'); let added = 0;
+            lines.forEach(line => {
+                if(line.includes('|')) {
+                    const [q, a] = line.split('|');
+                    if(q.trim() && a.trim()) { appData.flashcards[s].push({ id: Date.now().toString() + added, q: q.trim(), a: a.trim() }); added++; }
+                }
+            });
+            triggerCloudSync(); document.getElementById('bulkFlashInput').value = ''; alert(`Injected ${added} cards to ${s.toUpperCase()}.`); openFlashManager();
+        }
+        function deleteFlashcard(s, id) { appData.flashcards[s] = appData.flashcards[s].filter(f => f.id !== id); triggerCloudSync(); openFlashManager(); }
+
+        // --- POMODORO ---
+        let timerInterval; let timeLeft = 0; let isTimerRunning = false; let isBreakMode = false;
+        function toggleDeepWork() {
+            const screen = document.getElementById('deepWorkScreen');
+            if (screen.classList.contains('hidden')) { updateBounty(); screen.classList.remove('hidden'); screen.classList.add('flex'); } 
+            else { screen.classList.add('hidden'); screen.classList.remove('flex'); pauseTimer(); }
+        }
+        function toggleFullScreen() { if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(e=>{}); } else { document.exitFullscreen(); } }
+        function updateDisplay() { const mins = Math.floor(timeLeft / 60); const secs = timeLeft % 60; document.getElementById('countdownDisplay').innerText = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`; }
+        
+        function checkTouchGrass() {
+            if(appData.stats.pomodorosToday >= 4) {
+                document.getElementById('touchGrassScreen').classList.remove('hidden'); document.getElementById('touchGrassScreen').classList.add('flex');
+                let tgTime = 900; let tgInt = setInterval(()=>{
+                    tgTime--; document.getElementById('tgCountdown').innerText = `${String(Math.floor(tgTime/60)).padStart(2,'0')}:${String(tgTime%60).padStart(2,'0')}`;
+                    if(tgTime<=0){ clearInterval(tgInt); document.getElementById('touchGrassScreen').classList.add('hidden'); document.getElementById('touchGrassScreen').classList.remove('flex'); appData.stats.pomodorosToday=0; triggerCloudSync(); }
+                }, 1000);
+            }
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
-            refreshFullUI();
+        function startTimer() {
+            if (isTimerRunning) return;
+            const focusVal = parseInt(document.getElementById('focusInput').value); const breakVal = parseInt(document.getElementById('breakInput').value);
+            if (timeLeft === 0) timeLeft = isBreakMode ? (breakVal * 60) : (focusVal * 60);
+            if (timeLeft <= 0) return;
+
+            document.getElementById('btnTimerStart').classList.add('hidden'); document.getElementById('btnTimerPause').classList.remove('hidden');
+            document.getElementById('focusInput').disabled = true; document.getElementById('breakInput').disabled = true;
+            isTimerRunning = true;
+            timerInterval = setInterval(() => {
+                timeLeft--; updateDisplay();
+                if(timeLeft % 60 === 0 && !isBreakMode) { appData.stats.soloMinutes++; triggerCloudSync(); updateBounty(); }
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval); 
+                    
+                    if (!isBreakMode) {
+                        logSessionToCalendar("Focus Run", focusVal, 'bg-solo');
+                    }
+
+                    isTimerRunning = false; isBreakMode = !isBreakMode;
+                    timeLeft = isBreakMode ? (breakVal * 60) : (focusVal * 60);
+                    const label = document.getElementById('pomodoroLabel'); const display = document.getElementById('countdownDisplay');
+                    if(isBreakMode) {
+                        appData.stats.pomodorosToday++; triggerAnomaly(); checkTouchGrass();
+                        label.innerText = "BREAK TIME"; label.className = "text-[#00ccff] font-mono tracking-[0.2em] mb-4 text-xl animate-pulse";
+                        display.className = "text-8xl md:text-[150px] font-bold text-white font-mono tracking-tighter mb-4 tabular-nums drop-shadow-[0_0_20px_rgba(0,204,255,0.2)]";
+                    } else {
+                        label.innerText = "FOCUS RUN"; label.className = "text-[#00ff66] font-mono tracking-[0.2em] mb-4 text-xl animate-pulse";
+                        display.className = "text-8xl md:text-[150px] font-bold text-white font-mono tracking-tighter mb-4 tabular-nums drop-shadow-[0_0_20px_rgba(0,255,102,0.2)]";
+                    }
+                    startTimer(); 
+                }
+            }, 1000);
+        }
+        function pauseTimer() { isTimerRunning = false; clearInterval(timerInterval); document.getElementById('btnTimerStart').classList.remove('hidden'); document.getElementById('btnTimerStart').innerText = 'RESUME'; document.getElementById('btnTimerPause').classList.add('hidden'); }
+        function resetTimer() {
+            pauseTimer(); isBreakMode = false; document.getElementById('focusInput').disabled = false; document.getElementById('breakInput').disabled = false;
+            document.getElementById('pomodoroLabel').innerText = "FOCUS RUN"; document.getElementById('pomodoroLabel').className = "text-[#00ff66] font-mono tracking-[0.2em] mb-4 text-xl animate-pulse";
+            document.getElementById('countdownDisplay').className = "text-8xl md:text-[150px] font-bold text-white font-mono tracking-tighter mb-4 tabular-nums drop-shadow-[0_0_20px_rgba(0,255,102,0.2)]";
+            timeLeft = parseInt(document.getElementById('focusInput').value) * 60; updateDisplay(); document.getElementById('btnTimerStart').innerText = 'START CYCLE';
+        }
+        function updateSpotify() {
+            const link = document.getElementById('spotifyLink').value;
+            if (link.includes("spotify.com/playlist/") || link.includes("spotify.com/album/")) {
+                const type = link.includes("playlist") ? "playlist" : "album"; const id = link.split(type + "/")[1].split("?")[0];
+                document.getElementById('spotifyFrame').src = `https://open.spotify.com/embed/${type}/${id}`;
+            }
+        }
+
+        // --- EXAM MODE ---
+        let examTimerInt; let examTimeLeft = 0; let currentExamMins = 0;
+        function toggleExamMode() {
+            const screen = document.getElementById('examScreen');
+            if (screen.classList.contains('hidden')) { screen.classList.remove('hidden'); screen.classList.add('flex'); document.getElementById('examSetupDiv').classList.remove('hidden'); document.getElementById('examCountdownDisplay').classList.add('hidden'); document.getElementById('btnExamSubmit').classList.add('hidden'); document.getElementById('btnExamAbort').innerText = "CANCEL"; } 
+            else { screen.classList.add('hidden'); screen.classList.remove('flex'); clearInterval(examTimerInt); }
+        }
+        function startExam(mins) {
+            currentExamMins = mins;
+            examTimeLeft = mins * 60; document.getElementById('examSetupDiv').classList.add('hidden'); document.getElementById('examCountdownDisplay').classList.remove('hidden');
+            document.getElementById('btnExamAbort').innerText = "ABORT (FAIL)"; document.getElementById('btnExamSubmit').classList.remove('hidden'); updateExamDisplay();
+            examTimerInt = setInterval(() => { examTimeLeft--; updateExamDisplay(); if(examTimeLeft <= 0) { clearInterval(examTimerInt); alert("TIME IS UP. PUT PEN DOWN."); submitExam(); } }, 1000);
+        }
+        function updateExamDisplay() { const h = Math.floor(examTimeLeft/3600); const m = Math.floor((examTimeLeft%3600)/60); const s = examTimeLeft%60; document.getElementById('examCountdownDisplay').innerText = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; }
+        function abortExam() { if(examTimeLeft>0 && document.getElementById('btnExamAbort').innerText!=="CANCEL") { if(!confirm("Are you sure? Counts as failed.")) return; } toggleExamMode(); }
+        function submitExam() { 
+            let actualMins = currentExamMins - Math.floor(examTimeLeft/60);
+            logSessionToCalendar("Exam Simulator", actualMins, 'bg-solo');
+            alert("Paper Submitted."); toggleExamMode(); 
+        }
+
+        // --- SKILL TREE & MATRIX ---
+        function openSkillTree() {
+            ['phys','chem','math'].forEach(s => {
+                let mods = SKILL_MODULES[s]; let total = mods.length; let comp = mods.filter(m => appData.skillTree[s][m]).length; let col = s==='phys'?'text-[#ff3366]':s==='chem'?'text-[#00ccff]':'text-[#cc66ff]';
+                let html = `<div class="flex justify-between items-end border-b border-zinc-800 pb-2 mb-2"><h4 class="font-bold text-sm ${col}">${s.toUpperCase()}</h4><span class="font-mono text-xs ${col}">${Math.round((comp/total)*100)}%</span></div><div class="space-y-1 pl-2 border-l border-zinc-800">`;
+                mods.forEach(mod => { let isDone = appData.skillTree[s][mod]; let sCol = isDone ? col : 'text-zinc-500'; let ic = isDone ? 'check-circle-2' : 'circle';
+                    html += `<div class="flex items-center gap-2 cursor-pointer group" onclick="toggleSkill('${s}', '${mod}')"><i data-lucide="${ic}" class="w-3 h-3 ${sCol}"></i><span class="font-mono text-[10px] ${sCol} group-hover:text-white">${mod}</span></div>`;
+                }); html += `</div>`; document.getElementById(`tree-${s}`).innerHTML = html;
+            });
+            document.getElementById('skillTreeModal').classList.remove('hidden'); document.getElementById('skillTreeModal').classList.add('flex'); lucide.createIcons();
+        }
+        function closeSkillTree() { document.getElementById('skillTreeModal').classList.add('hidden'); document.getElementById('skillTreeModal').classList.remove('flex'); }
+        function toggleSkill(s, mod) { appData.skillTree[s][mod] = !appData.skillTree[s][mod]; triggerCloudSync(); openSkillTree(); }
+
+        const matrixModal = document.getElementById('matrixModal'); const pastYears = [2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
+        function openMatrixModal() {
+            ['phys','chem','math'].forEach(s => {
+                let col = s==='phys'?'text-[#ff3366]':s==='chem'?'text-[#00ccff]':'text-[#cc66ff]'; let hb = s==='phys'?'hover:border-[#ff3366]':s==='chem'?'hover:border-[#00ccff]':'hover:border-[#cc66ff]';
+                let html = `<h4 class="font-bold text-sm ${col} border-b border-zinc-800 pb-1 mb-2">${s.toUpperCase()}</h4><div class="space-y-1">`;
+                pastYears.forEach(y => {
+                    let c = appData.pastPapers[s][y] || 0; let m = c===0?'[ - ]':c===1?'[ 1x ]':c===2?'[ 2x ]':'[ 3x ]'; let st = c>0?col:'text-zinc-600';
+                    html += `<div class="flex justify-between p-1 bg-zinc-900/50 hover:bg-zinc-900 rounded border border-transparent ${hb} cursor-pointer" onclick="cyclePaper('${s}', ${y})"><span class="font-mono text-[10px] font-bold text-zinc-300">${y}</span><span class="font-mono font-bold text-[10px] ${st}">${m}</span></div>`;
+                }); document.getElementById(`matrix-${s}`).innerHTML = html + `</div>`;
+            });
+            matrixModal.classList.remove('hidden'); matrixModal.classList.add('flex');
+        }
+        function closeMatrixModal() { matrixModal.classList.add('hidden'); matrixModal.classList.remove('flex'); }
+        function cyclePaper(s, y) { let c = appData.pastPapers[s][y] || 0; appData.pastPapers[s][y] = c+1>3?0:c+1; triggerCloudSync(); openMatrixModal(); }
+
+        function toggleScratchpad() { document.getElementById('scratchpadPanel').classList.toggle('translate-x-full'); document.getElementById('scratchpadText').value = appData.scratchpad || ''; }
+        function saveScratchpad() { appData.scratchpad = document.getElementById('scratchpadText').value; triggerCloudSync(); }
+
+        // --- CALENDAR LOGIC ---
+        function getEventsForDate(date) {
+            const dateStr = formatDate(date); const dayOfWeek = date.getDay(); let events = [];
+            BASE_SCHEDULE.filter(e => e.day === dayOfWeek).forEach(baseE => {
+                const dateDelKey = `${dateStr}_${baseE.id}`; const globalDelKey = baseE.id;
+                if (!appData.deletedBaseEvents[dateDelKey] && !appData.deletedGlobalBaseEvents[globalDelKey]) events.push({...baseE, date: dateStr, isBase: true, isRecurring: false, uniqueId: dateDelKey });
+            });
+            if (appData.customEvents[dateStr]) events = events.concat(appData.customEvents[dateStr].map(e => ({...e, date: dateStr, isBase: false, isRecurring: false})));
+            appData.recurringEvents.forEach(re => { if (re.dayOfWeek === dayOfWeek && date >= new Date(re.startDate)) { const dateDelKey = `${dateStr}_${re.id}`; if (!appData.deletedBaseEvents[dateDelKey]) events.push({...re, date: dateStr, isBase: false, isRecurring: true, uniqueId: dateDelKey }); } });
+            return events;
+        }
+
+        function setView(view) {
+            currentView = view;
+            ['day', 'week', 'month'].forEach(v => {
+                const btn = document.getElementById(`btn-${v}`);
+                if (v === view) { btn.classList.add('bg-[#00ff66]', 'text-black'); btn.classList.remove('text-zinc-400'); } 
+                else { btn.classList.remove('bg-[#00ff66]', 'text-black'); btn.classList.add('text-zinc-400'); }
+            });
+            render(); if (view === 'week' || view === 'day') setTimeout(() => { document.getElementById('timeGrid').scrollTop = 6 * HOUR_HEIGHT; }, 50);
+        }
+        function nav(dir) {
+            if (currentView === 'day') baseDate.setDate(baseDate.getDate() + dir);
+            if (currentView === 'week') baseDate.setDate(baseDate.getDate() + (dir * 7));
+            if (currentView === 'month') baseDate.setMonth(baseDate.getMonth() + dir);
+            render();
+        }
+        function goToday() { baseDate = new Date(); render(); if (currentView === 'week' || currentView === 'day') setTimeout(() => { document.getElementById('timeGrid').scrollTop = 6 * HOUR_HEIGHT; }, 50); }
+
+        function render() {
+            updateCountdowns(); checkDeadManSwitch();
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            document.getElementById('gridHeader').classList.add('hidden'); document.getElementById('timeGrid').classList.add('hidden'); document.getElementById('monthGrid').classList.add('hidden');
+            let daysInView = [];
+
+            if (currentView === 'day') {
+                document.getElementById('currentDateDisplay').innerText = `${baseDate.getDate()} ${monthNames[baseDate.getMonth()]} ${baseDate.getFullYear()}`;
+                daysInView = [new Date(baseDate)]; renderTimeGrid(1, daysInView);
+            } else if (currentView === 'week') {
+                let mon = new Date(baseDate); let day = mon.getDay() || 7; mon.setDate(mon.getDate() - day + 1);
+                let sun = new Date(mon); sun.setDate(sun.getDate() + 6);
+                document.getElementById('currentDateDisplay').innerText = `${mon.getDate()} ${monthNames[mon.getMonth()]} - ${sun.getDate()} ${monthNames[sun.getMonth()]}`;
+                for(let i=0; i<7; i++) { let d = new Date(mon); d.setDate(mon.getDate() + i); daysInView.push(d); }
+                renderTimeGrid(7, daysInView);
+            } else if (currentView === 'month') {
+                document.getElementById('currentDateDisplay').innerText = `${monthNames[baseDate.getMonth()]} ${baseDate.getFullYear()}`;
+                let monDate = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
+                while(monDate.getMonth() === baseDate.getMonth()) { daysInView.push(new Date(monDate)); monDate.setDate(monDate.getDate()+1); }
+                renderMonthView(baseDate);
+            }
+            runAnalytics(daysInView);
+        }
+
+        function renderTimeGrid(colCount, daysArray) {
+            const gridHeader = document.getElementById('gridHeader'); const timeGrid = document.getElementById('timeGrid');
+            gridHeader.classList.remove('hidden'); timeGrid.classList.remove('hidden');
+            const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']; let headerHTML = '';
+            daysArray.forEach(d => {
+                let isToday = formatDate(d) === formatDate(new Date());
+                headerHTML += `<div class="flex-1 text-center py-2 border-r border-zinc-800 ${isToday ? 'bg-[#00ff66]/10' : ''}"><div class="text-[9px] md:text-[10px] font-bold ${isToday ? 'text-[#00ff66]' : 'text-zinc-500'}">${dayNames[d.getDay()]}</div><div class="text-sm md:text-lg font-bold ${isToday ? 'text-[#00ff66]' : 'text-white'}">${d.getDate()}</div></div>`;
+            });
+            gridHeader.innerHTML = headerHTML;
+
+            let gridHTML = '<div class="absolute w-full h-[1440px]"></div>';
+            for(let i=0; i<24; i++) { gridHTML += `<div class="grid-bg-line" style="top: ${i * HOUR_HEIGHT}px;"></div>`; if(i > 0) gridHTML += `<div class="time-label" style="top: ${i * HOUR_HEIGHT}px;">${i > 12 ? i-12+' PM' : (i===12 ? '12 PM' : i+' AM')}</div>`; }
+
+            daysArray.forEach((d, index) => {
+                const dateStr = formatDate(d); const events = getEventsForDate(d);
+                let colWidth = `calc((100% - 50px) / ${colCount})`;
+                let leftPos = `calc(50px + (${index} * (100% - 50px) / ${colCount}))`;
+                let colHTML = `<div class="absolute h-full border-r border-zinc-800/50" style="left: ${leftPos}; width: ${colWidth};">`;
+                events.forEach(ev => {
+                    const top = timeToPx(ev.start); const height = timeToPx(ev.end) - top; const evData = encodeURIComponent(JSON.stringify(ev)); let repIcon = (ev.isBase || ev.isRecurring) ? '<i data-lucide="repeat" class="w-2 h-2 inline mr-1"></i>' : '';
+                    colHTML += `<div class="event-block ${ev.type}" style="top: ${top}px; height: ${height}px;" onclick="editEvent('${evData}')"><div class="font-bold whitespace-nowrap overflow-hidden text-[9px] md:text-[11px]">${repIcon}${ev.title}</div><div class="text-[7px] md:text-[9px] opacity-75 font-mono hidden md:block">${ev.start} - ${ev.end}</div></div>`;
+                });
+                if (dateStr === formatDate(new Date())) { const nowTop = timeToPx(`${new Date().getHours()}:${new Date().getMinutes()}`); colHTML += `<div class="current-time-line" style="top: ${nowTop}px;"><div class="current-time-dot"></div></div>`; }
+                colHTML += '</div>'; gridHTML += colHTML;
+            });
+            timeGrid.innerHTML = gridHTML; lucide.createIcons();
+        }
+
+        function renderMonthView(date) {
+            const monthGrid = document.getElementById('monthGrid'); monthGrid.classList.remove('hidden'); monthGrid.innerHTML = '';
+            const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']; let html = '';
+            dayNames.forEach(n => html += `<div class="text-center py-2 text-[10px] font-bold text-zinc-500 tracking-widest hidden md:block">${n}</div><div class="text-center py-2 text-[10px] font-bold text-zinc-500 md:hidden">${n.charAt(0)}</div>`);
+            const year = date.getFullYear(); const month = date.getMonth(); const firstDay = new Date(year, month, 1).getDay(); const lastDay = new Date(year, month + 1, 0).getDate();
+            for (let i = 0; i < firstDay; i++) html += `<div class="p-1 md:p-2 bg-zinc-950/40 border-b border-r border-zinc-800/30"></div>`;
+            for (let i = 1; i <= lastDay; i++) {
+                const d = new Date(year, month, i); const isToday = formatDate(d) === formatDate(new Date()); const events = getEventsForDate(d);
+                html += `<div class="p-1 md:p-1.5 flex flex-col gap-1 overflow-hidden hover:bg-zinc-900 transition cursor-pointer border-b border-r border-zinc-800/30" onclick="openMonthDay('${formatDate(d)}')">`;
+                html += `<span class="text-[10px] md:text-xs font-bold pl-1 ${isToday ? 'text-[#00ff66]' : 'text-zinc-400'}">${i}</span>`;
+                events.sort((a,b) => timeToPx(a.start) - timeToPx(b.start));
+                events.slice(0, 3).forEach(ev => { html += `<div class="text-[7px] md:text-[9px] rounded px-1 truncate border-l-2 ${ev.type} hidden md:block">${ev.title}</div><div class="w-1.5 h-1.5 rounded-full md:hidden mb-0.5 ${ev.type}"></div>`; });
+                if(events.length > 3) html += `<div class="text-[9px] text-zinc-500 pl-1 hidden md:block">+${events.length - 3}</div>`;
+                html += `</div>`;
+            }
+            monthGrid.innerHTML = html;
+        }
+
+        function runAnalytics(daysArray) {
+            let tuitionHours = 0; let soloHours = 0;
+            daysArray.forEach(d => { getEventsForDate(d).forEach(ev => { let hrs = getDurationHours(ev.start, ev.end); if (ev.type === 'bg-solo') soloHours += hrs; else if(ev.type !== 'bg-club') tuitionHours += hrs; }); });
+            const banner = document.getElementById('analyticsBanner');
+            if (tuitionHours === 0 && soloHours === 0) { banner.className = "text-[10px] font-mono px-3 py-1 rounded bg-zinc-900 border border-zinc-700 text-zinc-500 flex items-center gap-2"; banner.innerHTML = `<i data-lucide="activity" class="w-3 h-3"></i> <span>No Data</span>`; } 
+            else {
+                let ratio = soloHours / (tuitionHours || 1); let isToxic = tuitionHours > 0 && ratio < 0.33;
+                if (isToxic) { banner.className = "text-[10px] font-mono px-3 py-1 rounded bg-red-950 border border-red-500 text-red-400 flex items-center gap-2 animate-pulse"; banner.innerHTML = `<i data-lucide="alert-triangle" class="w-3 h-3"></i> <span>WARNING: Toxic Ratio (${Math.round(soloHours)}h Solo vs ${Math.round(tuitionHours)}h Tuition)</span>`; } 
+                else { banner.className = "text-[10px] font-mono px-3 py-1 rounded bg-zinc-900 border border-[#00ff66]/50 text-[#00ff66] flex items-center gap-2"; banner.innerHTML = `<i data-lucide="check-circle" class="w-3 h-3"></i> <span>Optimal Grind (${Math.round(soloHours)}h Solo vs ${Math.round(tuitionHours)}h Class)</span>`; }
+            }
             lucide.createIcons();
+        }
 
-            // Set current human date
-            const today = new Date();
-            document.getElementById('current-calendar-date').innerText = today.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
+        // --- CALENDAR LOG INJECTION (Added Helper) ---
+        function logSessionToCalendar(title, durationMins, type) {
+            if (durationMins <= 0) return;
+            const now = new Date();
+            const start = new Date(now.getTime() - durationMins * 60000);
+            const dateStr = formatDate(now);
+            const startStr = String(start.getHours()).padStart(2, '0') + ':' + String(start.getMinutes()).padStart(2, '0');
+            const endStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+
+            if (!appData.customEvents[dateStr]) appData.customEvents[dateStr] = [];
+            appData.customEvents[dateStr].push({
+                id: Date.now().toString() + Math.floor(Math.random() * 1000), 
+                title: title,
+                start: startStr,
+                end: endStr,
+                type: type
+            });
+            triggerCloudSync();
+            render();
+        }
+
+        // --- CLASS VERIFICATION ENGINE (Added Helper) ---
+        function checkClassAttendance() {
+            const now = new Date();
+            const dateStr = formatDate(now);
+            const currTimeVal = now.getHours() + now.getMinutes() / 60;
+
+            const events = getEventsForDate(now);
+            events.forEach(ev => {
+                if (ev.type === 'bg-phys' || ev.type === 'bg-chem' || ev.type === 'bg-math') {
+                    const [eh, em] = ev.end.split(':').map(Number);
+                    const endTimeVal = eh + em / 60;
+                    const checkKey = dateStr + '_' + (ev.uniqueId || ev.id);
+
+                    if (currTimeVal >= endTimeVal && !appData.audit.verifiedClasses[checkKey]) {
+                        appData.audit.verifiedClasses[checkKey] = true;
+                        let attended = confirm(`SYSTEM CHECK: ${ev.title} just ended.\n\nDid you actually attend this class?\n[OK] = Attended\n[Cancel] = Skipped`);
+                        
+                        if (!attended) {
+                            appData.audit.skippedClasses++;
+                            alert("Fat L. Skipped class penalized in audit.");
+                        } else {
+                            alert("Massive W. Keep grinding.");
+                        }
+                        
+                        triggerCloudSync();
+                        render();
+                    }
+                }
+            });
+        }
+
+        const modal = document.getElementById('modal');
+        function openNewEventModal() {
+            document.getElementById('modalTitle').innerText = 'Add New Block';
+            document.getElementById('eventId').value = Date.now().toString(); document.getElementById('eventOriginalId').value = '';
+            document.getElementById('eventIsBase').value = 'false'; document.getElementById('eventIsRecurring').value = 'false';
+            document.getElementById('eventTitle').value = ''; document.getElementById('eventDate').value = currentView === 'month' ? formatDate(new Date()) : formatDate(baseDate);
+            document.getElementById('eventStart').value = '15:00'; document.getElementById('eventEnd').value = '17:00';
+            document.getElementById('eventType').value = 'bg-solo'; 
+            document.getElementById('editScopeContainer').classList.add('hidden'); document.getElementById('eventRepeatContainer').classList.remove('hidden'); document.getElementById('eventRepeat').value = 'none';
+            document.getElementById('deleteBtn').classList.add('hidden'); modal.classList.remove('hidden'); modal.classList.add('flex');
+        }
+        function editEvent(evDataEncoded) {
+            const ev = JSON.parse(decodeURIComponent(evDataEncoded)); const isRepeatingEntity = ev.isBase || ev.isRecurring;
+            document.getElementById('modalTitle').innerText = isRepeatingEntity ? 'Edit Repeating Class' : 'Edit Block';
+            document.getElementById('eventId').value = ev.uniqueId || ev.id; document.getElementById('eventOriginalId').value = ev.id;
+            document.getElementById('eventIsBase').value = ev.isBase ? 'true' : 'false'; document.getElementById('eventIsRecurring').value = ev.isRecurring ? 'true' : 'false';
+            document.getElementById('eventTitle').value = ev.title; document.getElementById('eventDate').value = ev.date;
+            document.getElementById('eventStart').value = ev.start; document.getElementById('eventEnd').value = ev.end;
+            document.getElementById('eventType').value = ev.type;
+            if (isRepeatingEntity) { document.getElementById('eventRepeatContainer').classList.add('hidden'); document.getElementById('editScopeContainer').classList.remove('hidden'); document.getElementById('editScope').value = 'global'; } 
+            else { document.getElementById('editScopeContainer').classList.add('hidden'); document.getElementById('eventRepeatContainer').classList.remove('hidden'); document.getElementById('eventRepeat').value = 'none'; }
+            document.getElementById('deleteBtn').classList.remove('hidden'); modal.classList.remove('hidden'); modal.classList.add('flex');
+        }
+        function closeModal() { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+
+        function saveEvent() {
+            const uniqueId = document.getElementById('eventId').value; const originalId = document.getElementById('eventOriginalId').value;
+            const isBase = document.getElementById('eventIsBase').value === 'true'; const isRecurring = document.getElementById('eventIsRecurring').value === 'true'; const date = document.getElementById('eventDate').value;
+            const newEv = { id: Date.now().toString(), title: document.getElementById('eventTitle').value || 'Study', start: document.getElementById('eventStart').value, end: document.getElementById('eventEnd').value, type: document.getElementById('eventType').value };
+            if (isBase || isRecurring) {
+                const scope = document.getElementById('editScope').value;
+                if (scope === 'global') {
+                    if (isBase) appData.deletedGlobalBaseEvents[originalId] = true;
+                    if (isRecurring) appData.recurringEvents = appData.recurringEvents.filter(r => r.id !== originalId);
+                    newEv.dayOfWeek = new Date(date).getDay(); newEv.startDate = date; appData.recurringEvents.push(newEv);
+                } else { appData.deletedBaseEvents[uniqueId] = true; if(!appData.customEvents[date]) appData.customEvents[date] = []; appData.customEvents[date].push(newEv); }
+            } else {
+                const isRepeat = document.getElementById('eventRepeat').value === 'weekly';
+                for (let d in appData.customEvents) { appData.customEvents[d] = appData.customEvents[d].filter(e => e.id !== uniqueId); if(appData.customEvents[d].length === 0) delete appData.customEvents[d]; }
+                if (isRepeat) { newEv.dayOfWeek = new Date(date).getDay(); newEv.startDate = date; appData.recurringEvents.push(newEv); } 
+                else { if(!appData.customEvents[date]) appData.customEvents[date] = []; appData.customEvents[date].push(newEv); }
+            }
+            triggerCloudSync(); closeModal(); render();
+        }
+        document.getElementById('deleteBtn').addEventListener('click', () => {
+            const uniqueId = document.getElementById('eventId').value; const originalId = document.getElementById('eventOriginalId').value;
+            const isBase = document.getElementById('eventIsBase').value === 'true'; const isRecurring = document.getElementById('eventIsRecurring').value === 'true';
+            if (isBase || isRecurring) {
+                const scope = document.getElementById('editScope').value;
+                if (scope === 'global') {
+                    if (isBase) appData.deletedGlobalBaseEvents[originalId] = true;
+                    if (isRecurring) appData.recurringEvents = appData.recurringEvents.filter(r => r.id !== originalId);
+                } else { appData.deletedBaseEvents[uniqueId] = true; }
+            } else {
+                for (let d in appData.customEvents) { appData.customEvents[d] = appData.customEvents[d].filter(e => e.id !== uniqueId); if(appData.customEvents[d].length === 0) delete appData.customEvents[d]; }
+                appData.audit.skippedClasses++; 
+            }
+            triggerCloudSync(); closeModal(); render();
         });
+
+        // Swipe & Init
+        let touchStartX = 0; let touchEndX = 0; const swipeArea = document.getElementById('swipeArea');
+        swipeArea.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, {passive: true});
+        swipeArea.addEventListener('touchend', e => { touchEndX = e.changedTouches[0].screenX; if (touchEndX < touchStartX - 50) nav(1); if (touchEndX > touchStartX + 50) nav(-1); }, {passive: true});
+        setInterval(() => { 
+            if (currentView === 'day' || currentView === 'week') render(); 
+            updateCountdowns(); 
+            checkClassAttendance(); // Trigger verification checks
+        }, 60000);
+        
+        setView('week'); 
+        setTimeout(() => {
+            updateCloudUI('synced');
+            pullCloudData();
+            runSysBoot();
+        }, 500); 
     </script>
 </body>
 </html>
